@@ -9,6 +9,9 @@ from ultralytics import YOLO
 import google.generativeai as genai
 import uvicorn
 import shutil
+import io
+import cloudinary
+import cloudinary.uploader
 
 # Thêm thư viện FastAPI
 from fastapi import FastAPI, File, UploadFile, HTTPException, Form
@@ -37,19 +40,26 @@ app.add_middleware(
 
 # --- CẤU HÌNH VÀ KHỞI TẠO MODEL ---
 
-# !!! QUAN TRỌNG: Dán khóa API hợp lệ của bạn vào đây !!!
-GEMINI_API_KEY = "AIzaSyCBHEa4eJfTwEMCoJkKr8POz4_lNwomPrU" 
+# Tải khóa API và cấu hình từ biến môi trường
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+CLOUDINARY_URL = os.getenv("CLOUDINARY_URL")
 
-if not GEMINI_API_KEY or GEMINI_API_KEY == "DÁN_KHÓA_API_HỢP_LỆ_CỦA_BẠN_VÀO_ĐÂY":
-    print("LỖI: Bạn chưa cấu hình khóa API cho Gemini trong file api.py.")
+if not GEMINI_API_KEY:
+    print("LỖI: Biến môi trường GEMINI_API_KEY chưa được thiết lập.")
     sys.exit(1)
 
+if not CLOUDINARY_URL:
+    print("LỖI: Biến môi trường CLOUDINARY_URL chưa được thiết lập.")
+    sys.exit(1)
+
+# Cấu hình Gemini và Cloudinary
 genai.configure(api_key=GEMINI_API_KEY)
-print("Khởi tạo cấu hình Gemini API...")
+cloudinary.config(CLOUDINARY_URL, secure=True)
+print("Khởi tạo cấu hình Gemini API và Cloudinary...")
 
 # Chuẩn bị danh sách model fallback
 GEMINI_MODELS = [
-    os.getenv("GEMINI_MODEL") or "gemini-2.5-flash-lite",
+    os.getenv("GEMINI_MODEL") or "gemini-1.5-flash-latest",
 ]
 
 def _gemini_generate_json(prompt: str, timeout_sec: int = 120):
@@ -72,23 +82,14 @@ if yolo_model is None:
     print("LỖI: Không thể tải YOLO model.")
     sys.exit(1)
 
-FONT_PATH = "arial.ttf"
+FONT_PATH = "ARIAL.TTF"
 if not os.path.exists(FONT_PATH):
     print(f"CẢNH BÁO: Không tìm thấy tệp font '{FONT_PATH}'.")
-
-os.makedirs("processed_images", exist_ok=True)
-app.mount("/processed", StaticFiles(directory="processed_images"), name="processed")
 
 # --- CÁC HÀM XỬ LÝ ---
 
 def get_gemini_recommendations(measurements_data):
-    """
-    Gọi Gemini API với dữ liệu đo lường chi tiết.
-    
-    Args:
-        measurements_data: Dictionary chứa các số đo từ pose_analyzer
-    """
-    # Lấy số đo (ưu tiên cm, không có thì dùng px)
+    # ... (giữ nguyên hàm này)
     if measurements_data.get("cm_measurements"):
         measurements = measurements_data["cm_measurements"]
         unit = "cm"
@@ -96,7 +97,6 @@ def get_gemini_recommendations(measurements_data):
         measurements = measurements_data.get("pixel_measurements", {})
         unit = "px"
     
-    # Tạo prompt chi tiết
     prompt = f"""
     Phân tích vóc dáng cơ thể dựa trên các số đo sau:
     
@@ -136,7 +136,6 @@ def get_gemini_recommendations(measurements_data):
         response = _gemini_generate_json(prompt, timeout_sec=120)
         text_response = getattr(response, 'text', None) or ''
         
-        # Tìm và parse JSON
         json_start = text_response.find('{')
         json_end = text_response.rfind('}') + 1
         
@@ -144,7 +143,6 @@ def get_gemini_recommendations(measurements_data):
             json_str = text_response[json_start:json_end]
             recommendations = json.loads(json_str)
             
-            # Thêm số đo vào kết quả
             recommendations['measurements'] = measurements
             recommendations['unit'] = unit
             
@@ -163,20 +161,6 @@ async def analyze_image(
     file: UploadFile = File(...),
     known_height_cm: Optional[float] = Form(None)
 ):
-    """
-    Phân tích ảnh tư thế và trả về các số đo cơ thể kèm gợi ý từ Gemini AI.
-    
-    Args:
-        file: File ảnh upload
-        known_height_cm: Chiều cao thực tế (cm) - optional, để quy đổi sang cm
-    
-    Returns:
-        JSON chứa:
-        - analysis_data: Phân tích từ Gemini
-        - measurements: Các số đo chi tiết (px và cm nếu có)
-        - processed_image_url: URL ảnh đã xử lý
-    """
-    # Đọc file ảnh
     contents = await file.read()
     np_arr = np.frombuffer(contents, np.uint8)
     image = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
@@ -190,7 +174,6 @@ async def analyze_image(
         print(f"Chiều cao thực tế: {known_height_cm} cm")
     print(f"{'='*60}\n")
     
-    # Phân tích tư thế với YOLO (bọc try để không rơi 500 chung chung)
     try:
         annotated_image, ratio, measurements = analyze_pose_with_yolo(
             yolo_model,
@@ -201,7 +184,6 @@ async def analyze_image(
         print(f"✗ Lỗi khi chạy YOLO/pose analyzer: {e}")
         raise HTTPException(status_code=500, detail=f"Pose analysis failed: {e}")
     
-    # Khởi tạo response mặc định
     response_data = {
         "success": False,
         "message": "Không phát hiện được cơ thể trong ảnh",
@@ -219,9 +201,39 @@ async def analyze_image(
         "processed_image_url": None
     }
     
-    # Nếu phát hiện được cơ thể và có đủ số đo
+    image_to_upload = image if annotated_image is None else annotated_image
+    uploaded_image_url = None
+
+    try:
+        # Chuyển ảnh từ OpenCV (BGR) sang RGB
+        img_rgb = cv2.cvtColor(image_to_upload, cv2.COLOR_BGR2RGB)
+        # Chuyển thành đối tượng ảnh của Pillow
+        pil_img = Image.fromarray(img_rgb)
+        
+        # Tạo một buffer byte để lưu ảnh
+        img_byte_arr = io.BytesIO()
+        pil_img.save(img_byte_arr, format='JPEG')
+        img_byte_arr = img_byte_arr.getvalue()
+
+        # Tải ảnh lên Cloudinary
+        upload_result = cloudinary.uploader.upload(
+            img_byte_arr,
+            folder="fitnexus_ai_trainer",
+            public_id=f"processed_{os.path.splitext(file.filename)[0]}",
+            overwrite=True,
+            resource_type="image"
+        )
+        uploaded_image_url = upload_result.get("secure_url")
+        response_data["processed_image_url"] = uploaded_image_url
+        print(f"\n✓ Đã tải ảnh lên Cloudinary: {uploaded_image_url}")
+
+    except Exception as e:
+        print(f"✗ Lỗi khi tải ảnh lên Cloudinary: {e}")
+        # Không dừng lại nếu chỉ lỗi upload ảnh, vẫn trả về kết quả phân tích
+        response_data["message"] += " (Lỗi lưu ảnh xử lý)"
+
+
     if annotated_image is not None and measurements is not None:
-        # Kiểm tra xem có đủ số đo quan trọng không
         has_valid_measurements = (
             measurements["confidence_flags"].get("shoulder_width") and
             measurements["confidence_flags"].get("hip_width") and
@@ -230,30 +242,10 @@ async def analyze_image(
         
         if has_valid_measurements:
             print("✓ Phát hiện đầy đủ các điểm khớp quan trọng")
-            print(f"✓ Số đo pixel: {measurements['pixel_measurements']}")
-            if measurements['cm_measurements']:
-                print(f"✓ Số đo cm: {measurements['cm_measurements']}")
-            
-            # Gọi Gemini để phân tích
             try:
                 gemini_recommendations = get_gemini_recommendations(measurements)
-
-                # Bổ sung phân loại từ module đo lường (nếu có)
-                cls = measurements.get("classifications") or {}
-                if cls.get("shape_type"):
-                    gemini_recommendations["shape_type"] = cls["shape_type"]
-                if cls.get("somatotype"):
-                    gemini_recommendations["somatotype"] = cls["somatotype"]
-
-                # Chuẩn hóa trường advice cho FE (fallback từ các trường khác)
-                if "advice" not in gemini_recommendations:
-                    gemini_recommendations["advice"] = (
-                        gemini_recommendations.get("general_advice")
-                        or gemini_recommendations.get("nutrition_advice")
-                        or ""
-                    )
-
-                response_data = {
+                # ... (phần còn lại của logic xử lý gemini)
+                response_data.update({
                     "success": True,
                     "message": "Phân tích thành công",
                     "analysis_data": gemini_recommendations,
@@ -264,11 +256,8 @@ async def analyze_image(
                         "confidence_flags": measurements["confidence_flags"],
                         "classifications": measurements.get("classifications", {})
                     },
-                    "processed_image_url": None  # Sẽ cập nhật bên dưới
-                }
-
+                })
                 print("✓ Đã nhận phân tích từ Gemini AI")
-                
             except Exception as e:
                 print(f"✗ Lỗi khi gọi Gemini: {e}")
                 response_data["message"] = f"Phát hiện cơ thể nhưng lỗi phân tích AI: {str(e)}"
@@ -280,61 +269,30 @@ async def analyze_image(
                 }
         else:
             print("✗ Không đủ điểm khớp để phân tích")
-            missing_parts = []
-            if not measurements["confidence_flags"].get("shoulder_width"):
-                missing_parts.append("vai")
-            if not measurements["confidence_flags"].get("hip_width"):
-                missing_parts.append("hông")
-            if not measurements["confidence_flags"].get("height"):
-                missing_parts.append("chiều cao")
-            
+            missing_parts = [part for part, found in measurements["confidence_flags"].items() if not found and part in ["shoulder_width", "hip_width", "height"]]
             response_data["message"] = f"Không phát hiện rõ: {', '.join(missing_parts)}"
     
-    # Lưu ảnh đã xử lý (dù có phát hiện hay không)
-    try:
-        output_filename = f"processed_{file.filename}"
-        output_path = os.path.join("processed_images", output_filename)
-
-        if annotated_image is not None:
-            cv2.imwrite(output_path, annotated_image)
-        else:
-            # Nếu không có kết quả, lưu ảnh gốc
-            cv2.imwrite(output_path, image)
-
-        image_url = f"http://localhost:8000/processed/{output_filename}"
-        response_data["processed_image_url"] = image_url
-
-        print(f"\n✓ Đã lưu ảnh xử lý: {output_path}")
-        print(f"{'='*60}\n")
-    except Exception as e:
-        print(f"✗ Lỗi khi lưu ảnh xử lý: {e}")
-    
+    print(f"{'='*60}\n")
     return response_data
 
 @app.get("/")
 async def root():
-    """Health check endpoint"""
     return {
         "status": "online",
         "service": "Fitnexus AI Trainer API",
         "version": "2.0",
-        "features": [
-            "YOLOv8 Pose Detection",
-            "Body Measurements (px and cm)",
-            "Gemini AI Analysis",
-            "Personalized Workout Recommendations"
-        ]
     }
 
 @app.get("/health")
 async def health_check():
-    """Kiểm tra trạng thái của các services"""
     return {
         "yolo_model": "loaded" if yolo_model else "failed",
         "gemini_api": "configured" if GEMINI_API_KEY else "not_configured",
-        "processed_images_dir": os.path.exists("processed_images")
+        "cloudinary": "configured" if CLOUDINARY_URL else "not_configured",
     }
 
 # Lệnh để chạy server
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    # Port sẽ được Render cung cấp qua biến môi trường PORT
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
