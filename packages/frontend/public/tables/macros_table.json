@@ -1,0 +1,692 @@
+[
+  {
+    "name": "Banh beo",
+    "key": "banh_beo",
+    "serving_g": 200,
+    "per_100g": {
+      "kcal": 138,
+      "protein_g": 3.0,
+      "fat_g": 2.0,
+      "carbs_g": 27.0,
+      "fiber_g": 1.0,
+      "sugar_g": 2.0,
+      "sodium_mg": 350
+    },
+    "per_serving": {
+      "kcal": 276,
+      "protein_g": 6.0,
+      "fat_g": 4.0,
+      "carbs_g": 54.0,
+      "fiber_g": 2.0,
+      "sugar_g": 4.0,
+      "sodium_mg": 700
+    }
+  },
+  {
+    "name": "Banh bot loc",
+    "key": "banh_bot_loc",
+    "serving_g": 150,
+    "per_100g": {
+      "kcal": 180,
+      "protein_g": 6.0,
+      "fat_g": 4.0,
+      "carbs_g": 30.0,
+      "fiber_g": 0.6,
+      "sugar_g": 2.0,
+      "sodium_mg": 420
+    },
+    "per_serving": {
+      "kcal": 270,
+      "protein_g": 9.0,
+      "fat_g": 6.0,
+      "carbs_g": 45.0,
+      "fiber_g": 0.9,
+      "sugar_g": 3.0,
+      "sodium_mg": 630
+    }
+  },
+  {
+    "name": "Banh can",
+    "key": "banh_can",
+    "serving_g": 150,
+    "per_100g": {
+      "kcal": 188,
+      "protein_g": 7.0,
+      "fat_g": 8.0,
+      "carbs_g": 22.0,
+      "fiber_g": 1.0,
+      "sugar_g": 2.5,
+      "sodium_mg": 420
+    },
+    "per_serving": {
+      "kcal": 282,
+      "protein_g": 10.5,
+      "fat_g": 12.0,
+      "carbs_g": 33.0,
+      "fiber_g": 1.5,
+      "sugar_g": 3.8,
+      "sodium_mg": 630
+    }
+  },
+  {
+    "name": "Banh canh",
+    "key": "banh_canh",
+    "serving_g": 700,
+    "per_100g": {
+      "kcal": 74,
+      "protein_g": 3.0,
+      "fat_g": 1.5,
+      "carbs_g": 12.0,
+      "fiber_g": 0.6,
+      "sugar_g": 1.5,
+      "sodium_mg": 480
+    },
+    "per_serving": {
+      "kcal": 518,
+      "protein_g": 21.0,
+      "fat_g": 10.5,
+      "carbs_g": 84.0,
+      "fiber_g": 4.2,
+      "sugar_g": 10.5,
+      "sodium_mg": 3360
+    }
+  },
+  {
+    "name": "Banh chung",
+    "key": "banh_chung",
+    "serving_g": 200,
+    "per_100g": {
+      "kcal": 214,
+      "protein_g": 7.0,
+      "fat_g": 6.0,
+      "carbs_g": 33.0,
+      "fiber_g": 2.5,
+      "sugar_g": 1.5,
+      "sodium_mg": 520
+    },
+    "per_serving": {
+      "kcal": 428,
+      "protein_g": 14.0,
+      "fat_g": 12.0,
+      "carbs_g": 66.0,
+      "fiber_g": 5.0,
+      "sugar_g": 3.0,
+      "sodium_mg": 1040
+    }
+  },
+  {
+    "name": "Banh cuon",
+    "key": "banh_cuon",
+    "serving_g": 200,
+    "per_100g": {
+      "kcal": 157,
+      "protein_g": 6.0,
+      "fat_g": 5.0,
+      "carbs_g": 22.0,
+      "fiber_g": 1.0,
+      "sugar_g": 2.0,
+      "sodium_mg": 520
+    },
+    "per_serving": {
+      "kcal": 314,
+      "protein_g": 12.0,
+      "fat_g": 10.0,
+      "carbs_g": 44.0,
+      "fiber_g": 2.0,
+      "sugar_g": 4.0,
+      "sodium_mg": 1040
+    }
+  },
+  {
+    "name": "Banh duc",
+    "key": "banh_duc",
+    "serving_g": 200,
+    "per_100g": {
+      "kcal": 122,
+      "protein_g": 2.0,
+      "fat_g": 2.0,
+      "carbs_g": 24.0,
+      "fiber_g": 0.6,
+      "sugar_g": 1.0,
+      "sodium_mg": 300
+    },
+    "per_serving": {
+      "kcal": 244,
+      "protein_g": 4.0,
+      "fat_g": 4.0,
+      "carbs_g": 48.0,
+      "fiber_g": 1.2,
+      "sugar_g": 2.0,
+      "sodium_mg": 600
+    }
+  },
+  {
+    "name": "Banh gio",
+    "key": "banh_gio",
+    "serving_g": 200,
+    "per_100g": {
+      "kcal": 177,
+      "protein_g": 8.0,
+      "fat_g": 9.0,
+      "carbs_g": 16.0,
+      "fiber_g": 1.0,
+      "sugar_g": 1.5,
+      "sodium_mg": 620
+    },
+    "per_serving": {
+      "kcal": 354,
+      "protein_g": 16.0,
+      "fat_g": 18.0,
+      "carbs_g": 32.0,
+      "fiber_g": 2.0,
+      "sugar_g": 3.0,
+      "sodium_mg": 1240
+    }
+  },
+  {
+    "name": "Banh khot",
+    "key": "banh_khot",
+    "serving_g": 170,
+    "per_100g": {
+      "kcal": 216,
+      "protein_g": 8.0,
+      "fat_g": 12.0,
+      "carbs_g": 19.0,
+      "fiber_g": 1.2,
+      "sugar_g": 2.0,
+      "sodium_mg": 580
+    },
+    "per_serving": {
+      "kcal": 367,
+      "protein_g": 13.6,
+      "fat_g": 20.4,
+      "carbs_g": 32.3,
+      "fiber_g": 2.0,
+      "sugar_g": 3.4,
+      "sodium_mg": 986
+    }
+  },
+  {
+    "name": "Banh mi",
+    "key": "banh_mi",
+    "serving_g": 220,
+    "per_100g": {
+      "kcal": 257,
+      "protein_g": 10.0,
+      "fat_g": 9.0,
+      "carbs_g": 34.0,
+      "fiber_g": 2.0,
+      "sugar_g": 4.0,
+      "sodium_mg": 720
+    },
+    "per_serving": {
+      "kcal": 565,
+      "protein_g": 22.0,
+      "fat_g": 19.8,
+      "carbs_g": 74.8,
+      "fiber_g": 4.4,
+      "sugar_g": 8.8,
+      "sodium_mg": 1584
+    }
+  },
+  {
+    "name": "Banh pia",
+    "key": "banh_pia",
+    "serving_g": 75,
+    "per_100g": {
+      "kcal": 404,
+      "protein_g": 6.0,
+      "fat_g": 20.0,
+      "carbs_g": 50.0,
+      "fiber_g": 1.0,
+      "sugar_g": 20.0,
+      "sodium_mg": 250
+    },
+    "per_serving": {
+      "kcal": 303,
+      "protein_g": 4.5,
+      "fat_g": 15.0,
+      "carbs_g": 37.5,
+      "fiber_g": 0.8,
+      "sugar_g": 15.0,
+      "sodium_mg": 188
+    }
+  },
+  {
+    "name": "Banh tet",
+    "key": "banh_tet",
+    "serving_g": 200,
+    "per_100g": {
+      "kcal": 227,
+      "protein_g": 7.0,
+      "fat_g": 7.0,
+      "carbs_g": 34.0,
+      "fiber_g": 2.5,
+      "sugar_g": 1.5,
+      "sodium_mg": 540
+    },
+    "per_serving": {
+      "kcal": 454,
+      "protein_g": 14.0,
+      "fat_g": 14.0,
+      "carbs_g": 68.0,
+      "fiber_g": 5.0,
+      "sugar_g": 3.0,
+      "sodium_mg": 1080
+    }
+  },
+  {
+    "name": "Banh trang nuong",
+    "key": "banh_trang_nuong",
+    "serving_g": 120,
+    "per_100g": {
+      "kcal": 250,
+      "protein_g": 9.0,
+      "fat_g": 14.0,
+      "carbs_g": 22.0,
+      "fiber_g": 1.5,
+      "sugar_g": 4.0,
+      "sodium_mg": 720
+    },
+    "per_serving": {
+      "kcal": 300,
+      "protein_g": 10.8,
+      "fat_g": 16.8,
+      "carbs_g": 26.4,
+      "fiber_g": 1.8,
+      "sugar_g": 4.8,
+      "sodium_mg": 864
+    }
+  },
+  {
+    "name": "Banh xeo",
+    "key": "banh_xeo",
+    "serving_g": 200,
+    "per_100g": {
+      "kcal": 172,
+      "protein_g": 5.0,
+      "fat_g": 8.0,
+      "carbs_g": 20.0,
+      "fiber_g": 1.5,
+      "sugar_g": 2.0,
+      "sodium_mg": 600
+    },
+    "per_serving": {
+      "kcal": 344,
+      "protein_g": 10.0,
+      "fat_g": 16.0,
+      "carbs_g": 40.0,
+      "fiber_g": 3.0,
+      "sugar_g": 4.0,
+      "sodium_mg": 1200
+    }
+  },
+  {
+    "name": "Bun bo Hue",
+    "key": "bun_bo_hue",
+    "serving_g": 800,
+    "per_100g": {
+      "kcal": 92,
+      "protein_g": 5.0,
+      "fat_g": 3.5,
+      "carbs_g": 10.0,
+      "fiber_g": 0.8,
+      "sugar_g": 1.5,
+      "sodium_mg": 650
+    },
+    "per_serving": {
+      "kcal": 736,
+      "protein_g": 40.0,
+      "fat_g": 28.0,
+      "carbs_g": 80.0,
+      "fiber_g": 6.4,
+      "sugar_g": 12.0,
+      "sodium_mg": 5200
+    }
+  },
+  {
+    "name": "Bun dau mam tom",
+    "key": "bun_dau_mam_tom",
+    "serving_g": 450,
+    "per_100g": {
+      "kcal": 236,
+      "protein_g": 10.0,
+      "fat_g": 12.0,
+      "carbs_g": 22.0,
+      "fiber_g": 2.0,
+      "sugar_g": 3.0,
+      "sodium_mg": 900
+    },
+    "per_serving": {
+      "kcal": 1062,
+      "protein_g": 45.0,
+      "fat_g": 54.0,
+      "carbs_g": 99.0,
+      "fiber_g": 9.0,
+      "sugar_g": 13.5,
+      "sodium_mg": 4050
+    }
+  },
+  {
+    "name": "Bun mam",
+    "key": "bun_mam",
+    "serving_g": 750,
+    "per_100g": {
+      "kcal": 117,
+      "protein_g": 7.0,
+      "fat_g": 5.0,
+      "carbs_g": 11.0,
+      "fiber_g": 1.0,
+      "sugar_g": 2.0,
+      "sodium_mg": 900
+    },
+    "per_serving": {
+      "kcal": 878,
+      "protein_g": 52.5,
+      "fat_g": 37.5,
+      "carbs_g": 82.5,
+      "fiber_g": 7.5,
+      "sugar_g": 15.0,
+      "sodium_mg": 6750
+    }
+  },
+  {
+    "name": "Bun rieu",
+    "key": "bun_rieu",
+    "serving_g": 700,
+    "per_100g": {
+      "kcal": 85,
+      "protein_g": 4.5,
+      "fat_g": 3.0,
+      "carbs_g": 10.0,
+      "fiber_g": 0.8,
+      "sugar_g": 1.5,
+      "sodium_mg": 700
+    },
+    "per_serving": {
+      "kcal": 595,
+      "protein_g": 31.5,
+      "fat_g": 21.0,
+      "carbs_g": 70.0,
+      "fiber_g": 5.6,
+      "sugar_g": 10.5,
+      "sodium_mg": 4900
+    }
+  },
+  {
+    "name": "Bun thit nuong",
+    "key": "bun_thit_nuong",
+    "serving_g": 450,
+    "per_100g": {
+      "kcal": 212,
+      "protein_g": 12.0,
+      "fat_g": 8.0,
+      "carbs_g": 23.0,
+      "fiber_g": 2.0,
+      "sugar_g": 5.0,
+      "sodium_mg": 700
+    },
+    "per_serving": {
+      "kcal": 954,
+      "protein_g": 54.0,
+      "fat_g": 36.0,
+      "carbs_g": 103.5,
+      "fiber_g": 9.0,
+      "sugar_g": 22.5,
+      "sodium_mg": 3150
+    }
+  },
+  {
+    "name": "Hu tieu",
+    "key": "hu_tieu",
+    "serving_g": 700,
+    "per_100g": {
+      "kcal": 95,
+      "protein_g": 5.0,
+      "fat_g": 3.0,
+      "carbs_g": 12.0,
+      "fiber_g": 0.8,
+      "sugar_g": 1.5,
+      "sodium_mg": 650
+    },
+    "per_serving": {
+      "kcal": 665,
+      "protein_g": 35.0,
+      "fat_g": 21.0,
+      "carbs_g": 84.0,
+      "fiber_g": 5.6,
+      "sugar_g": 10.5,
+      "sodium_mg": 4550
+    }
+  },
+  {
+    "name": "Mi quang",
+    "key": "mi_quang",
+    "serving_g": 450,
+    "per_100g": {
+      "kcal": 163,
+      "protein_g": 9.0,
+      "fat_g": 7.0,
+      "carbs_g": 16.0,
+      "fiber_g": 1.5,
+      "sugar_g": 2.0,
+      "sodium_mg": 700
+    },
+    "per_serving": {
+      "kcal": 734,
+      "protein_g": 40.5,
+      "fat_g": 31.5,
+      "carbs_g": 72.0,
+      "fiber_g": 6.8,
+      "sugar_g": 9.0,
+      "sodium_mg": 3150
+    }
+  },
+  {
+    "name": "Pho",
+    "key": "pho",
+    "serving_g": 700,
+    "per_100g": {
+      "kcal": 74,
+      "protein_g": 4.0,
+      "fat_g": 2.0,
+      "carbs_g": 10.0,
+      "fiber_g": 0.6,
+      "sugar_g": 1.0,
+      "sodium_mg": 700
+    },
+    "per_serving": {
+      "kcal": 518,
+      "protein_g": 28.0,
+      "fat_g": 14.0,
+      "carbs_g": 70.0,
+      "fiber_g": 4.2,
+      "sugar_g": 7.0,
+      "sodium_mg": 4900
+    }
+  },
+  {
+    "name": "Ca kho to",
+    "key": "ca_kho_to",
+    "serving_g": 200,
+    "per_100g": {
+      "kcal": 174,
+      "protein_g": 18.0,
+      "fat_g": 10.0,
+      "carbs_g": 3.0,
+      "fiber_g": 0.3,
+      "sugar_g": 3.0,
+      "sodium_mg": 600
+    },
+    "per_serving": {
+      "kcal": 348,
+      "protein_g": 36.0,
+      "fat_g": 20.0,
+      "carbs_g": 6.0,
+      "fiber_g": 0.6,
+      "sugar_g": 6.0,
+      "sodium_mg": 1200
+    }
+  },
+  {
+    "name": "Canh chua",
+    "key": "canh_chua",
+    "serving_g": 400,
+    "per_100g": {
+      "kcal": 33,
+      "protein_g": 3.0,
+      "fat_g": 1.0,
+      "carbs_g": 3.0,
+      "fiber_g": 0.8,
+      "sugar_g": 1.5,
+      "sodium_mg": 350
+    },
+    "per_serving": {
+      "kcal": 132,
+      "protein_g": 12.0,
+      "fat_g": 4.0,
+      "carbs_g": 12.0,
+      "fiber_g": 3.2,
+      "sugar_g": 6.0,
+      "sodium_mg": 1400
+    }
+  },
+  {
+    "name": "Cao lau",
+    "key": "cao_lau",
+    "serving_g": 450,
+    "per_100g": {
+      "kcal": 149,
+      "protein_g": 8.0,
+      "fat_g": 5.0,
+      "carbs_g": 18.0,
+      "fiber_g": 1.5,
+      "sugar_g": 2.0,
+      "sodium_mg": 650
+    },
+    "per_serving": {
+      "kcal": 670,
+      "protein_g": 36.0,
+      "fat_g": 22.5,
+      "carbs_g": 81.0,
+      "fiber_g": 6.8,
+      "sugar_g": 9.0,
+      "sodium_mg": 2925
+    }
+  },
+  {
+    "name": "Chao long",
+    "key": "chao_long",
+    "serving_g": 500,
+    "per_100g": {
+      "kcal": 80,
+      "protein_g": 4.5,
+      "fat_g": 2.5,
+      "carbs_g": 10.0,
+      "fiber_g": 0.6,
+      "sugar_g": 1.0,
+      "sodium_mg": 600
+    },
+    "per_serving": {
+      "kcal": 400,
+      "protein_g": 22.5,
+      "fat_g": 12.5,
+      "carbs_g": 50.0,
+      "fiber_g": 3.0,
+      "sugar_g": 5.0,
+      "sodium_mg": 3000
+    }
+  },
+  {
+    "name": "Com tam",
+    "key": "com_tam",
+    "serving_g": 500,
+    "per_100g": {
+      "kcal": 196,
+      "protein_g": 9.0,
+      "fat_g": 8.0,
+      "carbs_g": 22.0,
+      "fiber_g": 1.5,
+      "sugar_g": 3.0,
+      "sodium_mg": 850
+    },
+    "per_serving": {
+      "kcal": 980,
+      "protein_g": 45.0,
+      "fat_g": 40.0,
+      "carbs_g": 110.0,
+      "fiber_g": 7.5,
+      "sugar_g": 15.0,
+      "sodium_mg": 4250
+    }
+  },
+  {
+    "name": "Goi cuon",
+    "key": "goi_cuon",
+    "serving_g": 160,
+    "per_100g": {
+      "kcal": 127,
+      "protein_g": 9.0,
+      "fat_g": 3.0,
+      "carbs_g": 16.0,
+      "fiber_g": 1.8,
+      "sugar_g": 2.0,
+      "sodium_mg": 420
+    },
+    "per_serving": {
+      "kcal": 203,
+      "protein_g": 14.4,
+      "fat_g": 4.8,
+      "carbs_g": 25.6,
+      "fiber_g": 2.9,
+      "sugar_g": 3.2,
+      "sodium_mg": 672
+    }
+  },
+  {
+    "name": "Nem chua",
+    "key": "nem_chua",
+    "serving_g": 50,
+    "per_100g": {
+      "kcal": 219,
+      "protein_g": 18.0,
+      "fat_g": 15.0,
+      "carbs_g": 3.0,
+      "fiber_g": 0.0,
+      "sugar_g": 1.5,
+      "sodium_mg": 980
+    },
+    "per_serving": {
+      "kcal": 110,
+      "protein_g": 9.0,
+      "fat_g": 7.5,
+      "carbs_g": 1.5,
+      "fiber_g": 0.0,
+      "sugar_g": 0.8,
+      "sodium_mg": 490
+    }
+  },
+  {
+    "name": "Xoi xeo",
+    "key": "xoi_xeo",
+    "serving_g": 250,
+    "per_100g": {
+      "kcal": 229,
+      "protein_g": 5.0,
+      "fat_g": 5.0,
+      "carbs_g": 41.0,
+      "fiber_g": 1.8,
+      "sugar_g": 1.5,
+      "sodium_mg": 380
+    },
+    "per_serving": {
+      "kcal": 572,
+      "protein_g": 12.5,
+      "fat_g": 12.5,
+      "carbs_g": 102.5,
+      "fiber_g": 4.5,
+      "sugar_g": 3.8,
+      "sodium_mg": 950
+    }
+  }
+]
