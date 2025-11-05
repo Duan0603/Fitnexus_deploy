@@ -54,7 +54,7 @@ if not CLOUDINARY_URL:
 
 # Cấu hình Gemini và Cloudinary
 genai.configure(api_key=GEMINI_API_KEY)
-cloudinary.config(CLOUDINARY_URL, secure=True)
+
 print("Khởi tạo cấu hình Gemini API và Cloudinary...")
 
 # Chuẩn bị danh sách model fallback
