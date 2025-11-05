@@ -6,4 +6,4 @@ google-generativeai
 Pillow
 numpy
 opencv-python
-python-cloudinary
+cloudinary
