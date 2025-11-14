@@ -77,7 +77,14 @@ router.post(
         try { formData.append("known_height_cm", String(height)); } catch (_) {}
       }
 
-      const response = await axios.post(AI_API_URL, formData, {
+      // Normalize AI API URL: if it doesn't already contain the analyze-image path,
+      // append it so both domain-only and full URLs are supported.
+      const base = String(AI_API_URL || "").trim();
+      const targetUrl = base.includes("analyze-image")
+        ? base
+        : `${base.replace(/\/+$/, "")}/analyze-image/`;
+
+      const response = await axios.post(targetUrl, formData, {
         headers: { ...formData.getHeaders() },
         timeout: 180000,
       });
