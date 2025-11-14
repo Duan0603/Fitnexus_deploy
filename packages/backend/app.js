@@ -26,10 +26,7 @@ import adminMetricsRoutes from "./routes/admin.metrics.routes.js";
 import adminRevenueRoutes from "./routes/admin.revenue.routes.js"; // ✅ Import route
 import supportRouter from "./routes/support.routes.js";
 import notificationRouter from "./routes/notification.routes.js";
-import {
-  FRONTEND_URL,
-  ADDITIONAL_CORS_ORIGINS,
-} from "./config/env.js";
+import { FRONTEND_URL, ADDITIONAL_CORS_ORIGINS } from "./config/env.js";
 import { ensureAiApp } from "./ai/index.js";
 
 import activityTracker from "./middleware/activity.tracker.js";
@@ -42,9 +39,9 @@ const envAdditionalOrigins = (ADDITIONAL_CORS_ORIGINS || "")
   .split(",")
   .map((origin) => origin.trim())
   .filter(Boolean);
-const allowedOrigins = Array.from(new Set([FRONTEND, ...envAdditionalOrigins])).filter(
-  Boolean
-);
+const allowedOrigins = Array.from(
+  new Set([FRONTEND, ...envAdditionalOrigins])
+).filter(Boolean);
 
 /* -------------------- IPv4 preference -------------------- */
 try {
@@ -106,6 +103,11 @@ if (process.env.NODE_ENV !== "test") {
 if (!process.env.SESSION_SECRET) {
   console.warn("[WARN] SESSION_SECRET is missing in .env");
 }
+// If running behind a proxy (Render, Heroku, etc.) trust the first proxy
+if (process.env.NODE_ENV === "production") {
+  app.set("trust proxy", 1);
+}
+
 app.use(
   session({
     secret: process.env.SESSION_SECRET || "dev_fallback_secret",
@@ -113,7 +115,7 @@ app.use(
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
-      secure: false,
+      secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
     },
   })

@@ -7,12 +7,14 @@ dotenv.config();
 
 function toSafeUsername(displayName) {
   // chuyển về chữ thường, thay khoảng trắng và ký tự lạ
-  return displayName
-    ?.trim()
-    .toLowerCase()
-    .replace(/\s+/g, "_")
-    .replace(/[^a-z0-9_]/g, "")
-    .slice(0, 24) || "user";
+  return (
+    displayName
+      ?.trim()
+      .toLowerCase()
+      .replace(/\s+/g, "_")
+      .replace(/[^a-z0-9_]/g, "")
+      .slice(0, 24) || "user"
+  );
 }
 
 async function genUniqueUsername(base) {
@@ -22,7 +24,8 @@ async function genUniqueUsername(base) {
   while (await User.findOne({ where: { username: name } })) {
     n += 1;
     name = `${base}_${n}`;
-    if (name.length > 30) name = `${base}_${Math.random().toString(36).slice(2, 6)}`;
+    if (name.length > 30)
+      name = `${base}_${Math.random().toString(36).slice(2, 6)}`;
   }
   return name;
 }
@@ -30,9 +33,10 @@ async function genUniqueUsername(base) {
 passport.use(
   new GoogleStrategy(
     {
-clientID: process.env.GOOGLE_CLIENT_ID,
-clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-callbackURL: process.env.GOOGLE_CALLBACK_URL,
+      clientID: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      callbackURL: process.env.GOOGLE_CALLBACK_URL,
+      passReqToCallback: true,
     },
     async (req, accessToken, refreshToken, profile, done) => {
       try {
