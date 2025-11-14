@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: frontend
+    runtime: node
+    plan: free
+    buildCommand: npm ci --prefer-offline --no-audit && npm run build
+    # Serve the built SPA with a static server that supports SPA fallback.
+    # Use the platform-provided port via $PORT so Render detects the open port.
+    startCommand: npx serve -s dist -l $PORT
+    envVars:
+      - key: NODE_ENV
+        value: production
+
