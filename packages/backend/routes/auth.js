@@ -1,7 +1,10 @@
 // routes/auth.js
 import express from "express";
 import passport from "passport";
-import { createGoogleLoginOtp, createGoogleOtpState } from "../services/googleOtp.service.js";
+import {
+  createGoogleLoginOtp,
+  createGoogleOtpState,
+} from "../services/googleOtp.service.js";
 import { sendMail } from "../utils/mailer.js";
 import { buildEmailOtpTemplate } from "../utils/emailTemplates.js";
 import User from "../models/user.model.js";
@@ -25,10 +28,51 @@ router.get(
 
 router.get(
   "/google/callback",
-  passport.authenticate("google", {
-    failureRedirect: `${FRONTEND_URL}/login`,
-    keepSessionInfo: true,
-  }),
+  // Use a custom callback to log failures and debug session/profile issues
+  (req, res, next) => {
+    passport.authenticate(
+      "google",
+      { failureRedirect: `${FRONTEND_URL}/login`, keepSessionInfo: true },
+      async (err, user, info) => {
+        if (err) {
+          console.error(
+            "Google OAuth authenticate error:",
+            err && err.stack ? err.stack : err
+          );
+          return res.redirect(`${FRONTEND_URL}/login?oauth=error`);
+        }
+
+        if (!user) {
+          console.warn("Google OAuth authenticate: no user returned", {
+            info: info || null,
+            sessionKeys: req.session ? Object.keys(req.session) : null,
+          });
+          return res.redirect(`${FRONTEND_URL}/login?oauth=failed`);
+        }
+
+        // Log minimal user identity info for debugging (no secrets)
+        try {
+          console.info(
+            "Google OAuth authenticate: user id:",
+            user.user_id || user.id || null
+          );
+        } catch (e) {}
+
+        // Establish login session
+        req.logIn(user, (loginErr) => {
+          if (loginErr) {
+            console.error(
+              "Google OAuth login error:",
+              loginErr && loginErr.stack ? loginErr.stack : loginErr
+            );
+            return res.redirect(`${FRONTEND_URL}/login?oauth=error`);
+          }
+          // proceed to next handler which will perform OTP/email flow
+          return next();
+        });
+      }
+    )(req, res, next);
+  },
   async (req, res) => {
     try {
       if (!req.user) {
@@ -84,7 +128,10 @@ router.get(
 );
 
 router.get("/me", (req, res) => {
-  res.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  res.set(
+    "Cache-Control",
+    "no-store, no-cache, must-revalidate, proxy-revalidate"
+  );
   res.set("Pragma", "no-cache");
   res.set("Expires", "0");
   res.set("Surrogate-Control", "no-store");
@@ -93,7 +140,8 @@ router.get("/me", (req, res) => {
     return res.status(401).json({ message: "Unauthenticated" });
   }
 
-  const plain = typeof req.user?.toJSON === "function" ? req.user.toJSON() : req.user;
+  const plain =
+    typeof req.user?.toJSON === "function" ? req.user.toJSON() : req.user;
   const { passwordHash, providerId, ...safe } = plain || {};
   return res.json({ user: safe });
 });
