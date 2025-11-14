@@ -1,5 +1,6 @@
 // src/pages/admin/AdminUsers.jsx (Unified)
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/auth.context.jsx";
 import api, { getAdminUsers, getAdminUsersStats } from "../../lib/api.js";
 import {
@@ -17,6 +18,7 @@ const AUTORELOAD_SEC = 30;
 
 export default function AdminUsers() {
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   const [items, setItems] = useState([]);
   const [total, setTotal] = useState(0);
@@ -100,6 +102,19 @@ export default function AdminUsers() {
   const displayTotal = statusFilter === "ALL" ? total : filteredItems.length;
   const page = Math.floor(offset / limit) + 1;
   const pages = Math.max(1, Math.ceil(displayTotal / limit));
+
+  const handleEditUser = (u) => {
+    const keyword = u.username || u.email || String(u.user_id || "");
+    const searchParam = encodeURIComponent(keyword);
+    navigate(`/admin/role?role=ALL&search=${searchParam}`);
+  };
+
+  const handleLockUser = (u) => {
+    const keyword = u.username || u.email || String(u.user_id || "");
+    const searchParam = encodeURIComponent(keyword);
+    const roleParam = encodeURIComponent(String(u.role || "ALL").toUpperCase());
+    navigate(`/admin/lock-unlock?search=${searchParam}&role=${roleParam}`);
+  };
 
   const handleDeleteUser = async (userId, username) => {
     if (
@@ -455,12 +470,14 @@ export default function AdminUsers() {
                           <button
                             className="p-1.5 hover:bg-gray-100 rounded transition"
                             title="Edit"
+                            onClick={() => handleEditUser(u)}
                           >
                             <Edit size={16} className="text-gray-600" />
                           </button>
                           <button
                             className="p-1.5 hover:bg-gray-100 rounded transition"
                             title="Lock/Unlock"
+                            onClick={() => handleLockUser(u)}
                           >
                             <Lock size={16} className="text-gray-600" />
                           </button>
@@ -480,6 +497,7 @@ export default function AdminUsers() {
                           <button
                             className="p-1.5 hover:bg-gray-100 rounded transition"
                             title="More"
+                            onClick={() => navigate(`/admin/user-plans/${u.user_id}`)}
                           >
                             <MoreVertical size={16} className="text-gray-600" />
                           </button>

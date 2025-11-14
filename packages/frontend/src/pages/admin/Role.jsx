@@ -11,12 +11,13 @@ export default function Role() {
   const { user } = useAuth();
   const [searchParams] = useSearchParams();
   const currentRole = (searchParams.get("role") || "ALL").toUpperCase();
+  const initialSearch = searchParams.get("search") || "";
 
   const [items, setItems] = useState([]);
   const [total, setTotal] = useState(0);
   const [limit, setLimit] = useState(20);
   const [offset, setOffset] = useState(0);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(initialSearch);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [editingId, setEditingId] = useState(null);

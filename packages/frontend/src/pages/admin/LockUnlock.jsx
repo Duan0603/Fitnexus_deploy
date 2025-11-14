@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import api, { endpoints } from "../../lib/api";
 import { FiLock, FiUnlock, FiSearch, FiRefreshCw } from "react-icons/fi";
 
@@ -29,9 +29,14 @@ function ConfirmModal({ open, title, children, onCancel, onConfirm, confirmText 
 
 export default function LockUnlock() {
   const [users, setUsers] = useState([]);
-  const [role, setRole] = useState("ALL");
-  const [status, setStatus] = useState("ALL");
-  const [search, setSearch] = useState("");
+  const [searchParams] = useSearchParams();
+  const initialRole = (searchParams.get("role") || "ALL").toUpperCase();
+  const initialStatus = (searchParams.get("status") || "ALL").toUpperCase();
+  const initialSearch = searchParams.get("search") || "";
+
+  const [role, setRole] = useState(initialRole);
+  const [status, setStatus] = useState(initialStatus);
+  const [search, setSearch] = useState(initialSearch);
   const [page, setPage] = useState(0);
   const [limit] = useState(20);
 
