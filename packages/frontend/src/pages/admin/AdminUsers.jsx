@@ -1,8 +1,11 @@
 // src/pages/admin/AdminUsers.jsx (Unified)
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/auth.context.jsx";
-import api, { getAdminUsers, getAdminUsersStats } from "../../lib/api.js";
+import { getAdminUsers, getAdminUsersStats } from "../../lib/api.js";
+import { patchUserRole, patchUserPlan } from "../../lib/api.js";
+
+import { deleteAdminUser } from "../../lib/api.js";
+
 import {
   Plus,
   Search,
@@ -18,7 +21,6 @@ const AUTORELOAD_SEC = 30;
 
 export default function AdminUsers() {
   const { user } = useAuth();
-  const navigate = useNavigate();
 
   const [items, setItems] = useState([]);
   const [total, setTotal] = useState(0);
@@ -29,14 +31,28 @@ export default function AdminUsers() {
   const [roleFilter, setRoleFilter] = useState("ALL");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [loading, setLoading] = useState(true);
-  const [deletingId, setDeletingId] = useState(null);
+  const [editingUser, setEditingUser] = useState(null);
+const [selectedRole, setSelectedRole] = useState("USER");
+const [selectedPlan, setSelectedPlan] = useState("FREE");
   const [stats, setStats] = useState({
     total: 0,
     role: { ADMIN: 0, TRAINER: 0, USER: 0 },
     plan: { FREE: 0, PREMIUM: 0 },
     status: { ACTIVE: 0, INACTIVE: 0 },
   });
+const handleDelete = async (id) => {
+  const confirmDelete = window.confirm("Are you sure you want to delete this user?");
+  if (!confirmDelete) return;
 
+  try {
+    await deleteAdminUser(id);
+    await load();       // reload list
+    await loadStats();  // update stats
+  } catch (err) {
+    console.log(err);
+    alert("Failed to delete user");
+  }
+};
   const load = async () => {
     setLoading(true);
     try {
@@ -103,50 +119,103 @@ export default function AdminUsers() {
   const page = Math.floor(offset / limit) + 1;
   const pages = Math.max(1, Math.ceil(displayTotal / limit));
 
-  const handleEditUser = (u) => {
-    const keyword = u.username || u.email || String(u.user_id || "");
-    const searchParam = encodeURIComponent(keyword);
-    navigate(`/admin/role?role=ALL&search=${searchParam}`);
-  };
+const saveUser = async () => {
+  try {
+    await patchUserRole(editingUser.user_id, selectedRole);
+    await patchUserPlan(editingUser.user_id, selectedPlan);
 
-  const handleLockUser = (u) => {
-    const keyword = u.username || u.email || String(u.user_id || "");
-    const searchParam = encodeURIComponent(keyword);
-    const roleParam = encodeURIComponent(String(u.role || "ALL").toUpperCase());
-    navigate(`/admin/lock-unlock?search=${searchParam}&role=${roleParam}`);
-  };
+    alert("Cập nhật thành công!");
+    await load();
+    setEditingUser(null);
 
-  const handleDeleteUser = async (userId, username) => {
-    if (
-      !window.confirm(
-        `Bạn có chắc muốn xóa user "${username || userId}"? Hành động này không thể hoàn tác.`
-      )
-    ) {
-      return;
-    }
-
-    try {
-      setDeletingId(userId);
-      const res = await api.delete(`/api/admin/users/${userId}`);
-      const data = res?.data;
-      if (!data?.success) {
-        throw new Error(data?.message || "Delete user failed");
-      }
-      await load();
-      await loadStats();
-    } catch (err) {
-      const msg =
-        err?.response?.data?.message ||
-        err?.message ||
-        "Không thể xóa user";
-      alert(msg);
-    } finally {
-      setDeletingId(null);
-    }
-  };
+  } catch (err) {
+    console.error(err);
+    alert("Lỗi khi cập nhật");
+  }
+};
 
   return (
     <div className="min-h-screen bg-gray-50">
+{editingUser && (
+  <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50">
+    <div className="
+      fixed right-0 top-0 h-full w-[380px] bg-white shadow-2xl border-l 
+      animate-[slideIn_0.25s_ease-out] p-6 flex flex-col
+    ">
+
+      <style>
+        {`
+          @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+          }
+        `}
+      </style>
+
+      {/* TITLE */}
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-xl font-semibold text-gray-800">
+          Edit User
+        </h2>
+        <button
+          className="text-gray-600 hover:text-red-500"
+          onClick={() => {
+            setEditingUser(null);
+            setSelectedRole("USER");
+            setSelectedPlan("FREE");
+          }}
+        >
+          ✕
+        </button>
+      </div>
+
+      {/* ROLE */}
+      <label className="text-sm text-gray-600">Role</label>
+      <select
+        className="border px-3 py-2 w-full rounded mb-4"
+        value={selectedRole}
+        onChange={(e) => setSelectedRole(e.target.value)}
+      >
+        <option value="USER">USER</option>
+        <option value="ADMIN">ADMIN</option>
+        <option value="SUBADMIN">SUBADMIN</option>
+        <option value="TRAINER">TRAINER</option>
+      </select>
+
+      {/* PLAN */}
+      <label className="text-sm text-gray-600">Plan</label>
+      <select
+        className="border px-3 py-2 w-full rounded mb-4"
+        value={selectedPlan}
+        onChange={(e) => setSelectedPlan(e.target.value)}
+      >
+        <option value="FREE">FREE</option>
+        <option value="PREMIUM">PREMIUM</option>
+      </select>
+
+      {/* FOOTER BUTTONS */}
+      <div className="mt-auto pt-4 flex justify-end gap-2 border-t">
+        <button
+          className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300"
+          onClick={() => {
+            setEditingUser(null);
+            setSelectedRole("USER");
+            setSelectedPlan("FREE");
+          }}
+        >
+          Cancel
+        </button>
+        <button
+          className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 shadow"
+          onClick={saveUser}
+        >
+          Save
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
       {/* Header */}
       <div className="bg-white border-b">
         <div className="px-6 py-4 mx-auto max-w-7xl">
@@ -470,34 +539,30 @@ export default function AdminUsers() {
                           <button
                             className="p-1.5 hover:bg-gray-100 rounded transition"
                             title="Edit"
-                            onClick={() => handleEditUser(u)}
+                             onClick={() => {
+  setEditingUser(u);
+  setSelectedRole(u.role);
+  setSelectedPlan(u.plan);
+}}
                           >
                             <Edit size={16} className="text-gray-600" />
                           </button>
                           <button
                             className="p-1.5 hover:bg-gray-100 rounded transition"
                             title="Lock/Unlock"
-                            onClick={() => handleLockUser(u)}
                           >
                             <Lock size={16} className="text-gray-600" />
                           </button>
-                          <button
-                            className="p-1.5 hover:bg-gray-100 rounded transition"
-                            title="Delete"
-                            disabled={deletingId === u.user_id}
-                            onClick={() => handleDeleteUser(u.user_id, u.username)}
-                          >
-                            <Trash2
-                              size={16}
-                              className={`text-red-600 ${
-                                deletingId === u.user_id ? "opacity-50" : ""
-                              }`}
-                            />
-                          </button>
+<button
+  className="p-1.5 hover:bg-gray-100 rounded transition"
+  title="Delete"
+  onClick={() => handleDelete(u.user_id)}
+>
+  <Trash2 size={16} className="text-red-600" />
+</button>
                           <button
                             className="p-1.5 hover:bg-gray-100 rounded transition"
                             title="More"
-                            onClick={() => navigate(`/admin/user-plans/${u.user_id}`)}
                           >
                             <MoreVertical size={16} className="text-gray-600" />
                           </button>
