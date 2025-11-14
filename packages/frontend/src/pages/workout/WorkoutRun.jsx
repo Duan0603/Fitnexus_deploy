@@ -7,7 +7,7 @@ import {
   skipCurrentExerciseApi,
   completeWorkoutSessionApi,
 } from '../../lib/api.js';
-import axios from 'axios';
+import api from '../../lib/api.js';
 
 function Badge({ children, tone = 'gray' }) {
   const tones = { 
@@ -91,7 +91,7 @@ export default function WorkoutRun() {
       const exId = exercise?.exercise_id;
       if (!exId) return;
       try {
-        const r = await axios.get(`/api/exercises/id/${exId}/steps`);
+        const r = await api.get(`/api/exercises/id/${exId}/steps`);
         if (alive && r?.data?.success) {
           const arr = r.data.data || [];
           setSteps(Array.isArray(arr) ? arr : []);

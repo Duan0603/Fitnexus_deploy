@@ -132,6 +132,16 @@ router.get(
       return res.redirect(url.toString());
     } catch (error) {
       console.error("Google OAuth OTP error:", error);
+      // Ensure we don't keep a half-open OAuth session if OTP/email fails
+      try {
+        if (typeof req.logout === "function") {
+          await new Promise((resolve, reject) =>
+            req.logout((err) => (err ? reject(err) : resolve()))
+          );
+        }
+      } catch (e) {
+        console.error("Google OAuth OTP logout cleanup error:", e);
+      }
       return res.redirect(`${FRONTEND_URL}/login?oauth=error`);
     }
   }
