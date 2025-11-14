@@ -1,12 +1,12 @@
-import path from 'path';
-import { fileURLToPath } from 'url';
-import dotenv from 'dotenv';
-import { dirname } from 'path';
+import path from "path";
+import { fileURLToPath } from "url";
+import dotenv from "dotenv";
+import { dirname } from "path";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-dotenv.config({ path: path.join(__dirname, '../.env') });
+dotenv.config({ path: path.join(__dirname, "../.env") });
 
 // Helper to parse DATABASE_URL
 const parseDatabaseUrl = (url) => {
@@ -18,20 +18,20 @@ const parseDatabaseUrl = (url) => {
       password: dbUrl.password,
       database: dbUrl.pathname.slice(1),
       host: dbUrl.hostname,
-      port: parseInt(dbUrl.port || '5432', 10),
-      dialect: 'postgres'
+      port: parseInt(dbUrl.port || "5432", 10),
+      dialect: "postgres",
     };
   } catch (e) {
-    console.error('Failed to parse DATABASE_URL:', e.message);
+    console.error("Failed to parse DATABASE_URL:", e.message);
     return null;
   }
 };
 
 // For production, use DATABASE_URL if available
-const productionConfig = process.env.DATABASE_URL 
+const productionConfig = process.env.DATABASE_URL
   ? {
       ...parseDatabaseUrl(process.env.DATABASE_URL),
-      logging: false
+      logging: false,
     }
   : {
       username: process.env.POSTGRES_USER,
@@ -39,8 +39,8 @@ const productionConfig = process.env.DATABASE_URL
       database: process.env.POSTGRES_DB,
       host: process.env.POSTGRES_HOST,
       port: process.env.POSTGRES_PORT,
-      dialect: 'postgres',
-      logging: false
+      dialect: "postgres",
+      logging: false,
     };
 
 export default {
@@ -50,7 +50,7 @@ export default {
     database: process.env.POSTGRES_DB,
     host: process.env.POSTGRES_HOST,
     port: process.env.POSTGRES_PORT,
-    dialect: 'postgres'
+    dialect: "postgres",
   },
   test: {
     username: process.env.POSTGRES_USER,
@@ -58,7 +58,7 @@ export default {
     database: `${process.env.POSTGRES_DB}_test`,
     host: process.env.POSTGRES_HOST,
     port: process.env.POSTGRES_PORT,
-    dialect: 'postgres'
+    dialect: "postgres",
   },
-  production: productionConfig
+  production: productionConfig,
 };
