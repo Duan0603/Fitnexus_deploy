@@ -12,13 +12,16 @@ export async function up(queryInterface, Sequelize) {
     USING ranked r
     WHERE ef.favorite_id = r.favorite_id AND r.rn > 1;
   `);
-  await queryInterface.addConstraint('exercise_favorites', {
-    fields: ['user_id', 'exercise_id'],
-    type: 'unique',
-    name: 'exercise_favorites_user_exercise_unique',
-  });
+  // Create a unique index (if not exists) instead of addConstraint so the
+  // migration is idempotent and doesn't error when the index already exists.
+  await queryInterface.sequelize.query(
+    `CREATE UNIQUE INDEX IF NOT EXISTS exercise_favorites_user_exercise_unique ON exercise_favorites (user_id, exercise_id)`
+  );
 }
 
 export async function down(queryInterface, Sequelize) {
-  await queryInterface.removeConstraint('exercise_favorites', 'exercise_favorites_user_exercise_unique');
+  // Drop the unique index/constraint if it exists
+  await queryInterface.sequelize.query(
+    `DROP INDEX IF EXISTS exercise_favorites_user_exercise_unique`
+  );
 }
