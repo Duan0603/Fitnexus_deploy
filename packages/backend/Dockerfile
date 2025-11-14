@@ -12,5 +12,5 @@ COPY . .
 
 EXPOSE 3001
 
-# Default to dev mode with nodemon. For production, override CMD to `node ./bin/www`.
-CMD ["npm","run","dev"]
+# Run production server
+CMD ["node", "./bin/www"]
