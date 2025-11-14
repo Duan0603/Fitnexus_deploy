@@ -1,12 +1,6 @@
 // routes/auth.js
 import express from "express";
 import passport from "passport";
-import {
-  createGoogleLoginOtp,
-  createGoogleOtpState,
-} from "../services/googleOtp.service.js";
-import { sendMail } from "../utils/mailer.js";
-import { buildEmailOtpTemplate } from "../utils/emailTemplates.js";
 import User from "../models/user.model.js";
 import { FRONTEND_URL } from "../config/env.js";
 
@@ -28,7 +22,7 @@ router.get(
 
 router.get(
   "/google/callback",
-  // Use a custom callback to log failures and debug session/profile issues
+  // Custom callback to establish session and then redirect without OTP
   (req, res, next) => {
     passport.authenticate(
       "google",
@@ -50,15 +44,13 @@ router.get(
           return res.redirect(`${FRONTEND_URL}/login?oauth=failed`);
         }
 
-        // Log minimal user identity info for debugging (no secrets)
         try {
           console.info(
             "Google OAuth authenticate: user id:",
             user.user_id || user.id || null
           );
-        } catch (e) {}
+        } catch {}
 
-        // Establish login session
         req.logIn(user, (loginErr) => {
           if (loginErr) {
             console.error(
@@ -67,7 +59,6 @@ router.get(
             );
             return res.redirect(`${FRONTEND_URL}/login?oauth=error`);
           }
-          // proceed to next handler which will perform OTP/email flow
           return next();
         });
       }
@@ -88,60 +79,22 @@ router.get(
         return res.redirect(`${FRONTEND_URL}/login?oauth=failed`);
       }
 
-      const userId = oauthUser.user_id || oauthUser.id || baseUserId;
-
-      const { code, ttlMin, ttlSeconds } = await createGoogleLoginOtp(userId);
-      const { subject, html, text } = buildEmailOtpTemplate({
-        name: oauthUser.fullName || oauthUser.username || "bạn",
-        code,
-        ttlMin,
-        brand: "FitNexus",
-      });
-
-      // If DISABLE_EMAIL is enabled, skip sending email and log OTP for debugging
-      if (String(process.env.DISABLE_EMAIL || "").toLowerCase() === "true") {
-        console.info("DISABLE_EMAIL active — OTP for user:", {
-          email: oauthUser.email,
-          otp: code,
-          ttlSeconds,
-        });
-      } else {
-        await sendMail({ to: oauthUser.email, subject, html, text });
-      }
-
       const redirectHint = req.session?.googleOauthRedirect || null;
-      const otpToken = await createGoogleOtpState(userId, {
-        email: oauthUser.email,
-        redirectTo: redirectHint,
-        ttlSeconds,
-      });
       if (req.session) delete req.session.googleOauthRedirect;
 
-      if (typeof req.logout === "function") {
-        await new Promise((resolve, reject) =>
-          req.logout((err) => (err ? reject(err) : resolve()))
-        );
+      let targetPath = "/dashboard";
+      if (
+        typeof redirectHint === "string" &&
+        redirectHint.startsWith("/") &&
+        redirectHint.length <= 300
+      ) {
+        targetPath = redirectHint;
       }
 
-      const url = new URL("/login/otp", FRONTEND_URL);
-      if (oauthUser.email) url.searchParams.set("email", oauthUser.email);
-      url.searchParams.set("otpToken", otpToken);
-      if (redirectHint) {
-        url.searchParams.set("from", redirectHint);
-      }
+      const url = new URL(targetPath, FRONTEND_URL);
       return res.redirect(url.toString());
     } catch (error) {
-      console.error("Google OAuth OTP error:", error);
-      // Ensure we don't keep a half-open OAuth session if OTP/email fails
-      try {
-        if (typeof req.logout === "function") {
-          await new Promise((resolve, reject) =>
-            req.logout((err) => (err ? reject(err) : resolve()))
-          );
-        }
-      } catch (e) {
-        console.error("Google OAuth OTP logout cleanup error:", e);
-      }
+      console.error("Google OAuth finalize error:", error);
       return res.redirect(`${FRONTEND_URL}/login?oauth=error`);
     }
   }
@@ -167,3 +120,4 @@ router.get("/me", (req, res) => {
 });
 
 export default router;
+
