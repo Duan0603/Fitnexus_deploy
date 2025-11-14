@@ -57,12 +57,14 @@ router.post(
   uploadLimiter,
   aiQuota('trainer_image_analyze'),
   upload.single("image"),
-  async (req, res, next) => {
+  async (req, res) => {
     if (!req.file) {
-      const err = new Error("No image file uploaded");
-      err.status = 400;
-      return next(err);
+      return res.status(400).json({
+        success: false,
+        message: "No image file uploaded",
+      });
     }
+
     const localPath = req.file.path;
     try {
       const formData = new FormData();
@@ -71,10 +73,16 @@ router.post(
         fs.createReadStream(localPath),
         req.file.originalname
       );
+
       // Optional: forward known_height_cm if client provided (as text field in multipart)
-      const height = (req.body && (req.body.known_height_cm || req.body.height_cm)) || null;
+      const height =
+        (req.body && (req.body.known_height_cm || req.body.height_cm)) || null;
       if (height) {
-        try { formData.append("known_height_cm", String(height)); } catch (_) {}
+        try {
+          formData.append("known_height_cm", String(height));
+        } catch {
+          // ignore casting errors
+        }
       }
 
       // Normalize AI API URL: if it doesn't already contain the analyze-image path,
@@ -88,20 +96,42 @@ router.post(
         headers: { ...formData.getHeaders() },
         timeout: 180000,
       });
+
       return res.status(200).json({
         success: true,
         message: "Image analyzed successfully.",
         data: response.data,
       });
     } catch (error) {
-      const errorMessage = error?.response
-        ? error.response.data?.detail || JSON.stringify(error.response.data)
-        : error.message;
-      console.error("[Trainer] Error calling AI service:", errorMessage);
-      const err = new Error("Failed to process image with AI service.");
-      err.status = 502; // Bad Gateway to upstream AI service
-      err.errors = [{ details: errorMessage }];
-      return next(err);
+      if (error?.response) {
+        const status = error.response.status || 502;
+        const data = error.response.data;
+        console.error(
+          "[Trainer] Error calling AI service (HTTP):",
+          status,
+          data
+        );
+        const detail =
+          (typeof data === "object" && data !== null && data.detail) ||
+          (typeof data === "object" && data !== null && data.message) ||
+          (typeof data === "string" ? data : "");
+
+        return res.status(status).json({
+          success: false,
+          message: detail || "AI service error",
+          errors: [{ details: data }],
+        });
+      }
+
+      console.error(
+        "[Trainer] Error calling AI service (network):",
+        error?.message
+      );
+      return res.status(502).json({
+        success: false,
+        message: "Unable to reach AI service",
+        errors: [{ details: error?.message || "Unknown error" }],
+      });
     } finally {
       try {
         if (localPath && fs.existsSync(localPath)) fs.unlinkSync(localPath);
