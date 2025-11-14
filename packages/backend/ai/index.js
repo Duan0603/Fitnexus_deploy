@@ -364,8 +364,15 @@ export function ensureAiApp() {
 }
 
 export function startAiServer() {
-  const app = ensureAiApp();
   if (aiServer) return aiServer;
+  if (process.env.RENDER === "true") {
+    // eslint-disable-next-line no-console
+    console.log(
+      "[AI] Render environment detected; using /api/ai route, standalone AI server disabled."
+    );
+    return null;
+  }
+  const app = ensureAiApp();
   const aiPort = parseInt(process.env.AI_PORT || "3002", 10);
   aiServer = http.createServer(app);
   aiServer.listen(aiPort, () => {
