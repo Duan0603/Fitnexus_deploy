@@ -6,9 +6,10 @@ const fallback = (key, value) => {
 const backendUrlRaw = (import.meta.env?.VITE_BACKEND_URL || "").trim();
 const appDownloadUrlRaw = (import.meta.env?.VITE_APP_DOWNLOAD_URL || "").trim();
 
-const backendUrl = backendUrlRaw || fallback("VITE_BACKEND_URL", "http://localhost:3001");
+const backendUrl = backendUrlRaw || fallback("VITE_BACKEND_URL", "/api");
 const appDownloadUrl =
-  appDownloadUrlRaw || fallback("VITE_APP_DOWNLOAD_URL", "https://fitnexus.app/download");
+  appDownloadUrlRaw ||
+  fallback("VITE_APP_DOWNLOAD_URL", "https://fitnexus.app/download");
 
 export const env = {
   backendUrl,
