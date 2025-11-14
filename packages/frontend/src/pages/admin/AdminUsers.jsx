@@ -1,7 +1,7 @@
 // src/pages/admin/AdminUsers.jsx (Unified)
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "../../context/auth.context.jsx";
-import { getAdminUsers, getAdminUsersStats } from "../../lib/api.js";
+import api, { getAdminUsers, getAdminUsersStats } from "../../lib/api.js";
 import {
   Plus,
   Search,
@@ -27,6 +27,7 @@ export default function AdminUsers() {
   const [roleFilter, setRoleFilter] = useState("ALL");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [loading, setLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState(null);
   const [stats, setStats] = useState({
     total: 0,
     role: { ADMIN: 0, TRAINER: 0, USER: 0 },
@@ -99,6 +100,35 @@ export default function AdminUsers() {
   const displayTotal = statusFilter === "ALL" ? total : filteredItems.length;
   const page = Math.floor(offset / limit) + 1;
   const pages = Math.max(1, Math.ceil(displayTotal / limit));
+
+  const handleDeleteUser = async (userId, username) => {
+    if (
+      !window.confirm(
+        `Bạn có chắc muốn xóa user "${username || userId}"? Hành động này không thể hoàn tác.`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      setDeletingId(userId);
+      const res = await api.delete(`/api/admin/users/${userId}`);
+      const data = res?.data;
+      if (!data?.success) {
+        throw new Error(data?.message || "Delete user failed");
+      }
+      await load();
+      await loadStats();
+    } catch (err) {
+      const msg =
+        err?.response?.data?.message ||
+        err?.message ||
+        "Không thể xóa user";
+      alert(msg);
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -437,8 +467,15 @@ export default function AdminUsers() {
                           <button
                             className="p-1.5 hover:bg-gray-100 rounded transition"
                             title="Delete"
+                            disabled={deletingId === u.user_id}
+                            onClick={() => handleDeleteUser(u.user_id, u.username)}
                           >
-                            <Trash2 size={16} className="text-red-600" />
+                            <Trash2
+                              size={16}
+                              className={`text-red-600 ${
+                                deletingId === u.user_id ? "opacity-50" : ""
+                              }`}
+                            />
                           </button>
                           <button
                             className="p-1.5 hover:bg-gray-100 rounded transition"

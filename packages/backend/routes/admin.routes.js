@@ -4,6 +4,8 @@ import { body, param, query, validationResult } from 'express-validator';
 import activityTracker from "../middleware/activity.tracker.js";
 import authGuard from '../middleware/auth.guard.js';
 import permissionGuard from '../middleware/permission.guard.js';
+import { sequelize } from '../config/database.js';
+import User from '../models/user.model.js';
 
 import {
   listUsers,
@@ -30,6 +32,74 @@ const router = express.Router();
 
 router.patch('/users/:id/lock',   authGuard, permissionGuard('manage:users'), lockUser);
 router.patch('/users/:id/unlock', authGuard, permissionGuard('manage:users'), unlockUser);
+
+// Hard delete user (admin)
+router.delete(
+  '/users/:id',
+  authGuard,
+  permissionGuard('manage:users'),
+  [
+    param('id').isInt({ min: 1 }).toInt(),
+  ],
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(422).json({
+        success: false,
+        message: 'Validation error',
+        errors: errors.array(),
+      });
+    }
+
+    try {
+      const targetId = Number(req.params.id);
+      const currentUserId = Number(req.userId || 0);
+
+      if (!Number.isFinite(targetId) || targetId <= 0) {
+        return res.status(400).json({ success: false, message: 'Invalid user id' });
+      }
+      if (currentUserId === targetId) {
+        return res.status(400).json({
+          success: false,
+          message: 'You cannot delete your own account from admin panel',
+        });
+      }
+
+      const result = await sequelize.transaction(async (t) => {
+        const user = await User.findOne({
+          where: { user_id: targetId },
+          transaction: t,
+          lock: t.LOCK.UPDATE,
+        });
+
+        if (!user) return { ok: false, reason: 'not_found' };
+
+        await user.destroy({ transaction: t });
+        return { ok: true, username: user.username, email: user.email };
+      });
+
+      if (!result.ok) {
+        if (result.reason === 'not_found') {
+          return res.status(404).json({ success: false, message: 'User not found' });
+        }
+        return res.status(400).json({ success: false, message: 'Cannot delete user' });
+      }
+
+      return res.json({
+        success: true,
+        message: 'User deleted successfully',
+        data: {
+          user_id: targetId,
+          username: result.username,
+          email: result.email,
+        },
+      });
+    } catch (err) {
+      console.error('Admin deleteUser (route) error:', err);
+      return res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+  }
+);
 
 // Get all plans of a specific user
 router.get('/users/:userId/plans', authGuard, permissionGuard('manage:users'), getUserPlans);
