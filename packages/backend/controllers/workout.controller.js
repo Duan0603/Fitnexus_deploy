@@ -3,6 +3,7 @@ import WorkoutSessionExercise from "../models/workout.session.exercise.model.js"
 import WorkoutSessionSet from "../models/workout.session.set.model.js";
 import Exercise from "../models/exercise.model.js";
 import WorkoutPlan from "../models/workout.plan.model.js";
+import { notifyUser } from "../services/notification.service.js";
 import { Op } from "sequelize";
 import {sequelize} from "../config/database.js";
 import PlanExerciseDetail from "../models/plan.exercise.detail.model.js";
@@ -146,14 +147,31 @@ export async function createWorkoutSession(req, res) {
       });
     }
 
-    const planId = parseInt(req.body?.plan_id, 10);
+    const planId = req.body?.plan_id ? parseInt(req.body.plan_id, 10) : null;
+    const exerciseIds = req.body?.exercise_ids && Array.isArray(req.body.exercise_ids) ? req.body.exercise_ids : null;
     const notes = req.body?.notes ? String(req.body.notes).trim() : null;
 
-    if (!Number.isFinite(planId) || planId <= 0) {
+    if (!planId && !exerciseIds) {
       await t.rollback();
       return res.status(422).json({ 
         success: false, 
-        message: "plan_id is required and must be a valid number" 
+        message: "Either plan_id or a list of exercise_ids is required" 
+      });
+    }
+    
+    if (planId && (!Number.isFinite(planId) || planId <= 0)) {
+      await t.rollback();
+      return res.status(422).json({ 
+        success: false, 
+        message: "plan_id must be a valid number" 
+      });
+    }
+
+    if (exerciseIds && exerciseIds.length === 0) {
+      await t.rollback();
+      return res.status(422).json({ 
+        success: false, 
+        message: "exercise_ids cannot be an empty list" 
       });
     }
 
@@ -192,75 +210,77 @@ export async function createWorkoutSession(req, res) {
       });
     }
 
-    // ============ 2. KIỂM TRA QUYỀN TRUY CẬP PLAN ============
-    const plan = await WorkoutPlan.findOne({
-      where: { plan_id: planId },
-      attributes: ['plan_id', 'name', 'creator_id', 'is_public'],
-      transaction: t
-    });
+    let planName = null;
+    let normalizedExercises = [];
 
-    if (!plan) {
-      await t.rollback();
-      return res.status(404).json({ 
-        success: false, 
-        message: "Plan not found" 
+    if (planId) {
+      // ============ 2. KIỂM TRA QUYỀN TRUY CẬP PLAN ============
+      const plan = await WorkoutPlan.findOne({
+        where: { plan_id: planId },
+        attributes: ['plan_id', 'name', 'creator_id', 'is_public'],
+        transaction: t
       });
-    }
 
-    // Check quyền: phải là creator hoặc plan public
-    const hasAccess = plan.creator_id === userId || plan.is_public === true;
-    if (!hasAccess) {
-      await t.rollback();
-      return res.status(403).json({ 
-        success: false, 
-        message: "You don't have permission to use this plan" 
+      if (!plan) {
+        await t.rollback();
+        return res.status(404).json({ 
+          success: false, 
+          message: "Plan not found" 
+        });
+      }
+
+      const hasAccess = plan.creator_id === userId || plan.is_public === true;
+      if (!hasAccess) {
+        await t.rollback();
+        return res.status(403).json({ 
+          success: false, 
+          message: "You don't have permission to use this plan" 
+        });
+      }
+      planName = plan.name;
+
+      // ============ 3. SNAPSHOT EXERCISES TỪ PLAN ============
+      const planExercises = await PlanExerciseDetail.findAll({
+        where: { plan_id: planId },
+        order: [
+          ['session_order', 'ASC'],
+          ['plan_exercise_id', 'ASC']
+        ],
+        attributes: [
+          'plan_exercise_id',
+          'exercise_id',
+          'session_order',
+          'sets_recommended',
+          'reps_recommended',
+          'rest_period_seconds'
+        ],
+        transaction: t
       });
+
+      normalizedExercises = planExercises.map((ex, index) => ({
+        plan_exercise_id: ex.plan_exercise_id,
+        exercise_id: ex.exercise_id,
+        session_order: index + 1,
+        target_sets: ex.sets_recommended,
+        target_reps: ex.reps_recommended,
+        target_rest_seconds: ex.rest_period_seconds
+      }));
+    } else { // exerciseIds is not null
+      planName = "Buổi tập tự do"; // Ad-hoc workout name
+      normalizedExercises = exerciseIds.map((id, index) => ({
+        exercise_id: id,
+        session_order: index + 1,
+        target_sets: 3, // Default values
+        target_reps: "8-12",
+        target_rest_seconds: 60,
+        plan_exercise_id: null,
+      }));
     }
-
-    // ============ 3. SNAPSHOT EXERCISES TỪ PLAN ============
-    const planExercises = await PlanExerciseDetail.findAll({
-      where: { plan_id: planId },
-      order: [
-        ['session_order', 'ASC'],
-        ['plan_exercise_id', 'ASC']
-      ],
-      attributes: [
-        'plan_exercise_id',
-        'exercise_id',
-        'session_order',
-        'sets_recommended',
-        'reps_recommended',
-        'rest_period_seconds'
-      ],
-      transaction: t
-    });
-
-    // Chuẩn hóa session_order: gán dải tuần tự 1..N
-    // để tránh null/duplicate khi insert vào workout_session_exercises
-    const normalizedExercises = planExercises.map((ex, index) => ({
-      plan_exercise_id: ex.plan_exercise_id,
-      exercise_id: ex.exercise_id,
-      session_order: index + 1, // 1, 2, 3, ...
-      target_sets: ex.sets_recommended,
-      target_reps: ex.reps_recommended,
-      target_rest_seconds: ex.rest_period_seconds
-    }));
-
-    // Edge case: Plan không có exercise
-    // Product decision: Vẫn cho tạo session để user có thể thêm exercise sau
-    // Nếu muốn block, uncomment dưới:
-    // if (normalizedExercises.length === 0) {
-    //   await t.rollback();
-    //   return res.status(422).json({ 
-    //     success: false, 
-    //     message: "Plan has no exercises" 
-    //   });
-    // }
 
     // ============ 4. TẠO SESSION (TRANSACTION) ============
     const session = await WorkoutSession.create({
       user_id: userId,
-      plan_id: planId,
+      plan_id: planId, // Can be null for ad-hoc workouts
       status: 'in_progress',
       started_at: new Date(),
       current_exercise_index: 0,
@@ -277,10 +297,9 @@ export async function createWorkoutSession(req, res) {
       target_reps: ex.target_reps,
       target_rest_seconds: ex.target_rest_seconds,
       completed_sets: 0,
-      status: 'pending' // Hoặc set exercise đầu tiên = 'in_progress'
+      status: 'pending'
     }));
 
-    // Optional: Set exercise đầu tiên là 'in_progress'
     if (sessionExercises.length > 0) {
       sessionExercises[0].status = 'in_progress';
     }
@@ -297,8 +316,8 @@ export async function createWorkoutSession(req, res) {
       message: "Workout session created successfully",
       data: {
         session_id: session.session_id,
-        plan_id: plan.plan_id,
-        plan_name: plan.name,
+        plan_id: planId,
+        plan_name: planName,
         exercises_count: sessionExercises.length,
         status: session.status,
         started_at: session.started_at,
@@ -310,7 +329,6 @@ export async function createWorkoutSession(req, res) {
     await t.rollback();
     console.error("createWorkoutSession error:", err);
 
-    // Handle unique constraint violation (race condition)
     if (err.name === 'SequelizeUniqueConstraintError' || 
         err.message?.includes('ws_one_active_per_user_idx')) {
       return res.status(409).json({
@@ -486,6 +504,13 @@ export async function completeSession(req, res) {
       { status: 'completed', ended_at: endedAt, total_duration_seconds: duration },
       { where: { session_id: sessionId, user_id: userId } }
     );
+
+    notifyUser(userId, {
+      type: 'workout_complete',
+      title: 'Bạn đã hoàn thành bài tập hôm nay!',
+      body: 'Giữ phong độ để duy trì tiến độ luyện tập.',
+      metadata: { sessionId, planId: session.plan_id },
+    }).catch(() => {});
 
     return res.status(200).json({ success: true, data: { session_id: sessionId, status: 'completed', total_duration_seconds: duration } });
   } catch (err) {

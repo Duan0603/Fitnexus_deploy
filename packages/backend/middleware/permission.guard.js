@@ -2,6 +2,7 @@
 import { can } from '../config/rbac.policy.js';
 import User from '../models/user.model.js';
 import jwt from 'jsonwebtoken';
+import { ensureActiveSubscription } from '../services/subscription.service.js';
 
 /**
  * Chuẩn hóa role/plan về lowercase theo policy
@@ -32,6 +33,7 @@ async function resolveUserFromReq(req) {
     const plan = req.user.plan;
     const user_type = req.user.user_type;
     const isSuperAdmin = !!req.user.isSuperAdmin;
+    await ensureActiveSubscription(req.user);
     return { role, plan, user_type, isSuperAdmin };
   }
 
@@ -54,6 +56,7 @@ async function resolveUserFromReq(req) {
         if (id) {
           const u = await User.findByPk(id);
           if (u) {
+            await ensureActiveSubscription(u);
             return { role: u.role, plan: u.plan, user_type: u.user_type, isSuperAdmin: !!u.isSuperAdmin };
           }
         }
@@ -65,6 +68,7 @@ async function resolveUserFromReq(req) {
     try {
       const u = await User.findByPk(userId);
       if (u) {
+        await ensureActiveSubscription(u);
         role = u.role;
         plan = u.plan;
         user_type = u.user_type;

@@ -3,7 +3,6 @@ import express from "express";
 import dns from "dns";
 import cors from "cors";
 import morgan from "morgan";
-import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
 import workoutRouter from "./routes/workout.routes.js";
 import helmet from "helmet";
@@ -23,15 +22,29 @@ import onboardingRouter from "./routes/onboarding.routes.js";
 import nutritionRouter from "./routes/nutrition.routes.js";
 import billingRouter from "./routes/billing.routes.js";
 import paymentRouter from "./routes/payment.routes.js";
+import adminMetricsRoutes from "./routes/admin.metrics.routes.js";
 import adminRevenueRoutes from "./routes/admin.revenue.routes.js"; // ✅ Import route
+import supportRouter from "./routes/support.routes.js";
+import notificationRouter from "./routes/notification.routes.js";
+import {
+  FRONTEND_URL,
+  ADDITIONAL_CORS_ORIGINS,
+} from "./config/env.js";
+import { ensureAiApp } from "./ai/index.js";
 
-dotenv.config();
 import activityTracker from "./middleware/activity.tracker.js";
 
 /* -------------------- Khởi tạo app -------------------- */
 const app = express();
 const isDev = process.env.NODE_ENV !== "production";
-const FRONTEND = process.env.FRONTEND_URL || "http://localhost:5173";
+const FRONTEND = FRONTEND_URL;
+const envAdditionalOrigins = (ADDITIONAL_CORS_ORIGINS || "")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+const allowedOrigins = Array.from(new Set([FRONTEND, ...envAdditionalOrigins])).filter(
+  Boolean
+);
 
 /* -------------------- IPv4 preference -------------------- */
 try {
@@ -39,7 +52,7 @@ try {
 } catch {}
 
 /* -------------------- PayOS Webhook Raw Body -------------------- */
-// ✅ Middleware này phải ĐẶT TRƯỚC express.json()
+// Middleware này phải ĐẶT TRƯỚC express.json()
 app.use("/api/payment/payos-webhook", bodyParser.raw({ type: "*/*" }));
 
 /* -------------------- Body & Cookies -------------------- */
@@ -49,13 +62,7 @@ app.use(express.urlencoded({ extended: true, limit: "200kb" }));
 
 /* -------------------- CORS -------------------- */
 const corsOptions = {
-  origin: [
-    FRONTEND,
-    "http://localhost:5174",
-    "http://localhost:5175",
-    "http://localhost:5178",
-    "http://localhost:5179",
-  ],
+  origin: allowedOrigins,
   credentials: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"],
   allowedHeaders: [
@@ -136,9 +143,14 @@ app.use("/api/onboarding", onboardingRouter);
 app.use("/api/nutrition", nutritionRouter);
 app.use("/api/billing", billingRouter);
 app.use("/api/payment", paymentRouter);
+app.use("/api/support", supportRouter);
+app.use("/api/notifications", notificationRouter);
+// Mount AI app under main backend as a sub-route for easy FE access
+app.use("/api/ai", ensureAiApp());
 
 // ✅ Di chuyển dòng này xuống đây sau khi app được khởi tạo
 app.use("/api/admin/revenue", adminRevenueRoutes);
+app.use("/api/admin/metrics", adminMetricsRoutes);
 
 // Theo dõi hoạt động người dùng
 app.use("/api", activityTracker);

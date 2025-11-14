@@ -17,6 +17,13 @@ const ExerciseFavorite = sequelize.define(
     timestamps: true,
     createdAt: 'created_at',
     updatedAt: false,
+    indexes: [
+      {
+        unique: true,
+        fields: ['user_id', 'exercise_id'],
+        name: 'exercise_favorites_user_exercise_unique',
+      },
+    ],
   }
 );
 

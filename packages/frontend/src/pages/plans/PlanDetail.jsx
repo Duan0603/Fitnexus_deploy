@@ -1,13 +1,15 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import HeaderLogin from "../../components/header/HeaderLogin.jsx";
-import { 
-  getPlanByIdApi, 
-  reorderPlanExercisesApi, 
+import {
+  getPlanByIdApi,
+  reorderPlanExercisesApi,
   updatePlanExerciseApi,
-  api 
+  deletePlanApi,
+  deleteExerciseFromPlanApi,
+  api,
+  listWorkoutSessionsApi,
 } from "../../lib/api.js";
-import { listWorkoutSessionsApi } from "../../lib/api.js";
 
 function Badge({ children, tone = "gray" }) {
   const tones = {
@@ -24,7 +26,6 @@ function Badge({ children, tone = "gray" }) {
   );
 }
 
-// Modal chỉnh sửa thông số bài tập trong plan
 function EditExerciseModal({ exercise, onClose, onSave }) {
   const [sets, setSets] = useState(exercise?.sets_recommended ?? "");
   const [reps, setReps] = useState(exercise?.reps_recommended ?? "");
@@ -41,7 +42,6 @@ function EditExerciseModal({ exercise, onClose, onSave }) {
       });
       onClose();
     } catch (e) {
-      // giữ modal mở để người dùng thử lại
       console.error("Save exercise settings error:", e);
     } finally {
       setSaving(false);
@@ -116,23 +116,23 @@ function ResumeRestartModal({ activeSession, onClose, onResume, onRestart }) {
   };
 
   return (
-    <div 
+    <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
       onClick={onClose}
     >
-      <div 
+      <div
         className="w-full max-w-md p-6 mx-4 bg-white shadow-2xl rounded-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <h3 className="mb-2 text-xl font-semibold text-gray-900">
           Bạn có buổi tập đang dở
         </h3>
-        
+
         <div className="mb-6">
           <p className="mb-3 text-sm text-gray-600">
             <span className="font-medium text-gray-900">{activeSession.plan_name}</span>
           </p>
-          
+
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
               <span className="text-gray-600">Lần cuối tập:</span>
@@ -168,14 +168,14 @@ function ResumeRestartModal({ activeSession, onClose, onResume, onRestart }) {
           >
             Tiếp tục buổi tập
           </button>
-          
+
           <button
             onClick={onRestart}
             className="w-full px-4 py-3 text-sm font-medium text-gray-700 transition-colors border-2 border-gray-300 rounded-lg hover:bg-gray-50"
           >
             Bắt đầu lại từ đầu
           </button>
-          
+
           <button
             onClick={onClose}
             className="w-full px-4 py-3 text-sm text-gray-500 transition-colors hover:text-gray-700"
@@ -188,7 +188,6 @@ function ResumeRestartModal({ activeSession, onClose, onResume, onRestart }) {
   );
 }
 
-// Modal: Có session đang dở thuộc plan KHÁC
 function ActiveOtherPlanModal({ activeSession, currentPlanName, onClose, onContinueOther, onFinishOtherThenStart }) {
   const getTimeAgo = (timestamp) => {
     const now = new Date();
@@ -223,6 +222,48 @@ function ActiveOtherPlanModal({ activeSession, currentPlanName, onClose, onConti
   );
 }
 
+function DeleteConfirmationModal({ planName, onConfirm, onCancel, isDeleting }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onCancel}>
+      <div className="w-full max-w-md p-6 mx-4 bg-white shadow-2xl rounded-xl" onClick={(e) => e.stopPropagation()}>
+        <h3 className="mb-2 text-xl font-semibold text-red-800">Xác nhận xóa</h3>
+        <p className="mb-6 text-sm text-gray-600">
+          Bạn có chắc chắn muốn xóa vĩnh viễn kế hoạch "<b>{planName}</b>"? Tất cả bài tập trong kế hoạch này cũng sẽ bị xóa. Hành động này không thể hoàn tác.
+        </p>
+        <div className="flex gap-4">
+          <button onClick={onCancel} disabled={isDeleting} className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50">
+            Hủy
+          </button>
+          <button onClick={onConfirm} disabled={isDeleting} className="flex-1 px-4 py-2 text-sm font-semibold text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-60">
+            {isDeleting ? "Đang xóa..." : "Xóa kế hoạch"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DeleteExerciseConfirmationModal({ exerciseName, onConfirm, onCancel, isDeleting }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onCancel}>
+      <div className="w-full max-w-md p-6 mx-4 bg-white shadow-2xl rounded-xl" onClick={(e) => e.stopPropagation()}>
+        <h3 className="mb-2 text-xl font-semibold text-red-800">Xác nhận xóa bài tập</h3>
+        <p className="mb-6 text-sm text-gray-600">
+          Bạn có chắc chắn muốn xóa bài tập "<b>{exerciseName}</b>" khỏi kế hoạch này? Hành động này không thể hoàn tác.
+        </p>
+        <div className="flex gap-4">
+          <button onClick={onCancel} disabled={isDeleting} className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50">
+            Hủy
+          </button>
+          <button onClick={onConfirm} disabled={isDeleting} className="flex-1 px-4 py-2 text-sm font-semibold text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-60">
+            {isDeleting ? "Đang xóa..." : "Xóa bài tập"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function PlanDetail() {
   const navigate = useNavigate();
   const { planId } = useParams();
@@ -239,6 +280,11 @@ export default function PlanDetail() {
   const [startingWorkout, setStartingWorkout] = useState(false);
   const [activeSessions, setActiveSessions] = useState([]);
   const [completedSessions, setCompletedSessions] = useState([]);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeleteExerciseModal, setShowDeleteExerciseModal] = useState(false);
+  const [exerciseToDelete, setExerciseToDelete] = useState(null);
+  const [isDeletingExercise, setIsDeletingExercise] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -251,6 +297,10 @@ export default function PlanDetail() {
         if (res?.success) {
           setPlan(res.data?.plan || null);
           setItems(res.data?.items || []);
+          if (!res.data?.plan) {
+            navigate('/plans/new');
+            return;
+          }
         } else {
           setError({ message: res?.message || "Không thể tải kế hoạch" });
         }
@@ -261,7 +311,7 @@ export default function PlanDetail() {
       }
     }
     load();
-    // load sessions
+
     (async () => {
       try {
         const r1 = await listWorkoutSessionsApi({ planId: Number(planId), status: 'active' });
@@ -270,8 +320,9 @@ export default function PlanDetail() {
         setCompletedSessions(r2?.data?.items || []);
       } catch {}
     })();
+
     return () => { alive = false; };
-  }, [planId]);
+  }, [planId, navigate]);
 
   const handleDragStart = (e, index) => {
     setDraggedIndex(index);
@@ -293,10 +344,10 @@ export default function PlanDetail() {
 
   const handleDragEnd = async () => {
     if (draggedIndex === null) return;
-    
+
     setSaving(true);
     setError(null);
-    
+
     try {
       const updates = items.map((item, idx) => ({
         plan_exercise_id: item.plan_exercise_id,
@@ -304,7 +355,7 @@ export default function PlanDetail() {
       }));
 
       const res = await reorderPlanExercisesApi(planId, updates);
-      
+
       if (!res?.success) {
         const reloadRes = await getPlanByIdApi(planId);
         if (reloadRes?.success) {
@@ -330,7 +381,7 @@ export default function PlanDetail() {
   const handleEditExercise = async (exercise, data) => {
     try {
       const res = await updatePlanExerciseApi(planId, exercise.plan_exercise_id, data);
-      
+
       if (res?.success) {
         setItems(prevItems =>
           prevItems.map(item =>
@@ -349,24 +400,62 @@ export default function PlanDetail() {
     }
   };
 
+  const handleDeletePlan = async () => {
+    setIsDeleting(true);
+    setError(null);
+    try {
+      const res = await deletePlanApi(planId);
+      if (res?.success) {
+        navigate('/plans/manage', { state: { toast: 'Kế hoạch đã được xóa thành công.' } });
+      } else {
+        throw new Error(res?.message || "Xóa kế hoạch thất bại.");
+      }
+    } catch (err) {
+      setError({ message: err.message || "Đã xảy ra lỗi khi xóa kế hoạch." });
+      setIsDeleting(false);
+    }
+  };
+
+  const handleDeleteExercise = async () => {
+    if (!exerciseToDelete) return;
+    setIsDeletingExercise(true);
+    setError(null);
+    try {
+      const res = await deleteExerciseFromPlanApi(planId, exerciseToDelete.plan_exercise_id);
+      if (res?.success) {
+        setItems(prevItems => {
+          const updatedItems = prevItems
+            .filter(item => item.plan_exercise_id !== exerciseToDelete.plan_exercise_id)
+            .map((item, index) => ({ ...item, session_order: index + 1 }));
+          return updatedItems;
+        });
+        setShowDeleteExerciseModal(false);
+        setExerciseToDelete(null);
+        setError(null);
+      } else {
+        throw new Error(res?.message || "Xóa bài tập thất bại.");
+      }
+    } catch (err) {
+      console.error('Delete exercise error:', err);
+      setError({ message: err.message || "Đã xảy ra lỗi khi xóa bài tập." });
+    } finally {
+      setIsDeletingExercise(false);
+    }
+  };
+
   // ============ WORKOUT START FLOW ============
   const startWorkout = async () => {
     setStartingWorkout(true);
     setError(null);
-
     try {
-      // 1. Check có session active không
       const activeRes = await api.get('/api/workout/active');
       const activeSess = activeRes?.data?.data?.session || null;
-
       if (!activeSess) {
         await createNewSession();
       } else if (Number(activeSess.plan_id) === Number(planId)) {
-        // Cùng plan -> hỏi tiếp tục hay bắt đầu lại
         setActiveSession(activeSess);
         setShowResumeModal(true);
       } else {
-        // KHÁC plan: hiển thị modal lựa chọn (không tự động kết thúc)
         setActiveSession(activeSess);
         setShowOtherPlanModal(true);
       }
@@ -380,11 +469,10 @@ export default function PlanDetail() {
 
   const createNewSession = async () => {
     try {
-      const res = await api.post('/api/workout', { 
+      const res = await api.post('/api/workout', {
         plan_id: Number(planId),
         notes: null
       });
-
       if (res.data.success) {
         navigate(`/workout-run/${res.data.data.session_id}`);
       } else {
@@ -392,9 +480,7 @@ export default function PlanDetail() {
       }
     } catch (err) {
       console.error("Create session error:", err);
-      
       if (err.response?.status === 409) {
-        // Race condition - có session được tạo trong lúc check
         const sessionData = err.response.data.data;
         setActiveSession(sessionData);
         setShowResumeModal(true);
@@ -410,8 +496,6 @@ export default function PlanDetail() {
   };
 
   const handleRestart = async () => {
-    // Mục tiêu: bắt đầu lại từ KẾ HOẠCH HIỆN TẠI (planId),
-    // nên hoàn tất session cũ (nếu có) rồi tạo session mới từ plan hiện tại.
     setShowResumeModal(false);
     setStartingWorkout(true);
     try {
@@ -427,11 +511,11 @@ export default function PlanDetail() {
     }
   };
 
-  // Modal khác plan
   const handleContinueOther = () => {
     setShowOtherPlanModal(false);
     if (activeSession?.session_id) navigate(`/workout-run/${activeSession.session_id}`);
   };
+
   const handleFinishOtherThenStart = async () => {
     setShowOtherPlanModal(false);
     setStartingWorkout(true);
@@ -447,7 +531,6 @@ export default function PlanDetail() {
     }
   };
 
-
   return (
     <div className="min-h-screen text-gray-900 bg-white">
       <HeaderLogin />
@@ -459,7 +542,6 @@ export default function PlanDetail() {
         >
           ← Quay lại
         </button>
-
         {loading && <div className="p-4 text-sm text-gray-600">Đang tải kế hoạch...</div>}
         {error && !loading && (
           <div className="p-4 mb-4 text-sm text-red-600 border border-red-200 rounded bg-red-50">
@@ -471,7 +553,6 @@ export default function PlanDetail() {
             Đang lưu thứ tự mới...
           </div>
         )}
-
         {plan && !loading && (
           <div className="space-y-6">
             <div className="p-5 bg-white border rounded-xl">
@@ -510,6 +591,12 @@ export default function PlanDetail() {
                   >
                     {startingWorkout ? 'Đang chuẩn bị...' : 'Bắt đầu tập'}
                   </button>
+                  <button
+                    className="px-4 py-2 text-sm font-medium text-red-600 border border-red-200 rounded-lg hover:bg-red-50 disabled:opacity-50"
+                    onClick={() => setShowDeleteModal(true)}
+                  >
+                    Xóa kế hoạch
+                  </button>
                 </div>
               </div>
             </div>
@@ -517,7 +604,7 @@ export default function PlanDetail() {
             <div className="p-5 bg-white border rounded-xl">
               <h2 className="mb-3 text-lg font-semibold">Bài tập trong kế hoạch</h2>
               <p className="mb-4 text-sm text-gray-500">Kéo thả để sắp xếp lại thứ tự bài tập</p>
-              
+
               {!items.length ? (
                 <div className="text-sm text-gray-600">Chưa có bài tập nào. Hãy thêm từ Thư viện.</div>
               ) : (
@@ -539,7 +626,7 @@ export default function PlanDetail() {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
                           </svg>
                         </div>
-                        
+
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
                             <span className="px-2 py-1 text-xs font-semibold text-gray-500 bg-gray-100 rounded">
@@ -568,7 +655,7 @@ export default function PlanDetail() {
                           </div>
                         </div>
                       </div>
-                      
+
                       <div className="flex items-center gap-2 shrink-0">
                         <button
                           className="px-3 py-1.5 text-sm text-blue-400 border border-blue-200 rounded hover:bg-blue-50"
@@ -585,6 +672,17 @@ export default function PlanDetail() {
                         >
                           Xem chi tiết
                         </button>
+                        {/* NEW: Delete exercise button */}
+                        <button
+                          className="px-3 py-1.5 text-sm text-red-600 border border-red-200 rounded hover:bg-red-50"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setExerciseToDelete(it);
+                            setShowDeleteExerciseModal(true);
+                          }}
+                        >
+                          Xóa
+                        </button>
                       </div>
                     </div>
                   ))}
@@ -592,7 +690,6 @@ export default function PlanDetail() {
               )}
             </div>
 
-            {/* Sessions overview */}
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
               <div className="p-5 bg-white border rounded-xl">
                 <h3 className="mb-2 text-base font-semibold text-gray-900">Chưa hoàn thành</h3>
@@ -612,6 +709,7 @@ export default function PlanDetail() {
                   </div>
                 )}
               </div>
+
               <div className="p-5 bg-white border rounded-xl">
                 <h3 className="mb-2 text-base font-semibold text-gray-900">Đã hoàn thành</h3>
                 {!completedSessions.length ? (
@@ -631,7 +729,6 @@ export default function PlanDetail() {
             </div>
           </div>
         )}
-
         {showResumeModal && activeSession && (
           <ResumeRestartModal
             activeSession={activeSession}
@@ -654,6 +751,25 @@ export default function PlanDetail() {
             onClose={() => setShowOtherPlanModal(false)}
             onContinueOther={handleContinueOther}
             onFinishOtherThenStart={handleFinishOtherThenStart}
+          />
+        )}
+        {showDeleteModal && (
+          <DeleteConfirmationModal
+            planName={plan?.name}
+            onConfirm={handleDeletePlan}
+            onCancel={() => setShowDeleteModal(false)}
+            isDeleting={isDeleting}
+          />
+        )}
+        {showDeleteExerciseModal && exerciseToDelete && (
+          <DeleteExerciseConfirmationModal
+            exerciseName={exerciseToDelete.exercise?.name || `#${exerciseToDelete.exercise_id}`}
+            onConfirm={handleDeleteExercise}
+            onCancel={() => {
+              setShowDeleteExerciseModal(false);
+              setExerciseToDelete(null);
+            }}
+            isDeleting={isDeletingExercise}
           />
         )}
       </main>

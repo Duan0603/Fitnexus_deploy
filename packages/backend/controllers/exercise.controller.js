@@ -839,11 +839,15 @@ export const postFavorite = async (req, res) => {
     const ex = await Exercise.findByPk(exerciseId);
     if (!ex) return res.status(404).json({ success: false, message: 'Exercise not found' });
 
-    try {
-      await ExerciseFavorite.create({ user_id: userId, exercise_id: exerciseId });
-    } catch (err) {
-      // ignore unique constraint (already favorited)
-      if (err.name !== 'SequelizeUniqueConstraintError') throw err;
+    // Idempotent: if already favorited, do nothing
+    const existed = await ExerciseFavorite.findOne({ where: { user_id: userId, exercise_id: exerciseId } });
+    if (!existed) {
+      try {
+        await ExerciseFavorite.create({ user_id: userId, exercise_id: exerciseId });
+      } catch (err) {
+        // ignore unique constraint (already favorited)
+        if (err.name !== 'SequelizeUniqueConstraintError') throw err;
+      }
     }
 
     // return new favorite count
@@ -881,27 +885,68 @@ export const getFavoriteStatus = async (req, res) => {
 
     const favCount = await ExerciseFavorite.count({ where: { exercise_id: exerciseId } });
     let favorited = false;
-    // if auth header provided, try to detect whether current user favorited
+    // Try detect user via Passport session or Authorization header (JWT)
     try {
-      const authHeader = req.get('authorization') || req.get('Authorization') || '';
-      if (authHeader.startsWith('Bearer ')) {
-        // authGuard not applied for this route; try to decode token
-        const token = authHeader.split(' ')[1];
-        const jwt = await import('jsonwebtoken');
-        const payload = jwt.verify(token, process.env.JWT_SECRET);
-        const userId = payload.sub || payload.userId || payload.id;
-        if (userId) {
-          const row = await ExerciseFavorite.findOne({ where: { user_id: userId, exercise_id: exerciseId } });
-          favorited = !!row;
+      let userId = req.userId || req.user?.user_id || null;
+      if (!userId) {
+        const authHeader = req.get('authorization') || req.get('Authorization') || '';
+        if (authHeader.startsWith('Bearer ')) {
+          const token = authHeader.split(' ')[1];
+          const jwt = await import('jsonwebtoken');
+          const payload = jwt.verify(token, process.env.JWT_SECRET);
+          userId = payload.sub || payload.userId || payload.id || null;
         }
       }
+      if (userId) {
+        const row = await ExerciseFavorite.findOne({ where: { user_id: userId, exercise_id: exerciseId } });
+        favorited = !!row;
+      }
     } catch (e) {
-      // ignore token errors
+      // ignore token/session errors; treat as anonymous
     }
 
     return res.json({ success: true, data: { exercise_id: exerciseId, favorite_count: favCount, favorited } });
   } catch (err) {
     console.error('getFavoriteStatus error:', err);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+// GET /api/exercises/favorites
+export const listMyFavorites = async (req, res) => {
+  try {
+    const userId = req.userId;
+    if (!userId) return res.status(401).json({ success: false, message: 'Unauthorized' });
+
+    // Fetch distinct favorites by exercise (avoid duplicates if any historical data remains)
+    const [rows] = await sequelize.query(
+      `SELECT e.exercise_id, e.slug, e.name, e.difficulty_level, e.equipment_needed, e.thumbnail_url, e.gif_demo_url
+       FROM (
+         SELECT DISTINCT ON (exercise_id) exercise_id, favorite_id
+         FROM exercise_favorites
+         WHERE user_id = $1
+         ORDER BY exercise_id, favorite_id DESC
+       ) ef
+       JOIN exercises e ON e.exercise_id = ef.exercise_id
+       ORDER BY ef.favorite_id DESC`,
+      { bind: [userId] }
+    );
+
+    const ids = rows.map((r) => r.exercise_id);
+    const imgMap = await fetchBestImagesForIds(ids);
+
+    const items = rows.map((ex) => ({
+      id: ex.exercise_id,
+      slug: ex.slug,
+      name: ex.name,
+      difficulty: ex.difficulty_level,
+      equipment: ex.equipment_needed,
+      imageUrl: imgMap.get(ex.exercise_id) || ex.thumbnail_url || ex.gif_demo_url || null,
+    }));
+
+    return res.json({ success: true, data: { items, total: items.length } });
+  } catch (err) {
+    console.error('listMyFavorites error:', err);
     return res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };

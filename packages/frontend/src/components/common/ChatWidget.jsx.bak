@@ -1,0 +1,175 @@
+import React, { useState, useRef, useEffect } from "react";
+import { MessageCircle, X, Minus } from "lucide-react";
+
+/**
+ * Floating Chat Widget (UI-only)
+ * - Red rounded pill button fixed at bottom-right
+ * - Click to toggle a chat panel
+ * - No data fetching or conversation state (stub only)
+ */
+export default function ChatWidget({ title = "Fitnexus Assistant" }) {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef(null);
+
+  // Close on ESC
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  // Simple outside click to close (only when header close is not used)
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (!open) return;
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        // Clicks on the floating toggle button should not close
+        const toggle = document.getElementById("fitnexus-chat-toggle");
+        if (toggle && toggle.contains(e.target)) return;
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [open]);
+return (
+  <div className="fixed z-[60] right-10 bottom-12 md:right-14 md:bottom-16">
+    {/* Floating Toggle Button */}
+    {!open && (
+      <button
+        id="fitnexus-chat-toggle"
+        type="button"
+        onClick={() => setOpen(true)}
+        aria-label="Open chat"
+        className="group relative flex items-center gap-2 rounded-full 
+                   border border-black/10 
+                   bg-gradient-to-b from-red-500 to-red-600 
+                   text-white pl-3 pr-5 py-2.5
+                   shadow-[0_2px_0_#00000026,0_10px_28px_rgba(0,0,0,0.25)]
+                   hover:from-red-600 hover:to-red-700
+                   active:translate-y-[1px]
+                   focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500
+                   transition-transform"
+      >
+        <span
+          className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-white/20 ring-1 ring-white/30"
+        >
+          <MessageCircle size={18} className="text-white" />
+        </span>
+        <span className="font-semibold tracking-wide">Chat</span>
+
+        {/* Notification dot with ping */}
+        <span className="absolute inline-flex items-center justify-center w-5 h-5 -top-1 -right-1">
+          <span className="absolute inline-flex w-full h-full bg-red-400 rounded-full opacity-60 animate-ping" />
+          <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-white ring-2 ring-red-600" />
+        </span>
+      </button>
+    )}
+
+    {/* Chat Panel */}
+    {open && (
+      <div
+        ref={containerRef}
+        role="dialog"
+        aria-label="Chat window"
+        className="flex h-[70vh] w-[92vw] max-w-[420px] flex-col overflow-hidden 
+                   rounded-2xl border border-black/10 
+                   bg-white/80 backdrop-blur-md 
+                   shadow-[0_12px_40px_rgba(0,0,0,0.28)]
+                   animate-in fade-in zoom-in-95 duration-200"
+      >
+        {/* Header */}
+        <div
+          className="flex items-center justify-between px-3 py-2 border-b border-gray-100 bg-gradient-to-b from-gray-50 to-white/80"
+        >
+          <div className="flex items-center gap-2">
+            <div
+              className="flex items-center justify-center font-bold text-white bg-red-600 rounded-full shadow-sm h-9 w-9"
+            >
+              F
+            </div>
+            <div className="leading-tight">
+              <span className="block text-sm font-semibold text-gray-900">
+                {title}
+              </span>
+              <span className="text-[11px] text-gray-500">Beta</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              aria-label="Minimize"
+              title="Minimize"
+              onClick={() => setOpen(false)}
+              className="p-1.5 rounded-md hover:bg-gray-200/60 focus:outline-none focus:ring-2 focus:ring-gray-300"
+            >
+              <Minus size={16} />
+            </button>
+            <button
+              type="button"
+              aria-label="Close"
+              title="Close"
+              onClick={() => setOpen(false)}
+              className="p-1.5 rounded-md hover:bg-gray-200/60 focus:outline-none focus:ring-2 focus:ring-gray-300"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+
+        {/* Body */}
+        <div className="flex-1 px-4 py-3 overflow-y-auto text-sm">
+          <div className="p-3 mb-3 text-gray-600 rounded-lg bg-gray-50">
+            Bằng cách trò chuyện, bạn đồng ý với việc sử dụng và lưu trữ nội
+            dung theo Chính sách Quyền riêng tư của chúng tôi.
+            <a
+              href="#"
+              onClick={(e) => e.preventDefault()}
+              className="ml-1 text-blue-600 hover:underline"
+            >
+              Privacy Policy
+            </a>
+          </div>
+          <p className="text-gray-500">
+            Khu vực hội thoại sẽ hiển thị tại đây sau khi bạn tích hợp AI.
+          </p>
+        </div>
+
+        {/* Composer */}
+        <div className="p-3 bg-white border-t border-gray-200">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              console.log("Submit message (stub)");
+            }}
+            className="flex items-center gap-2"
+          >
+            <input
+              type="text"
+              placeholder="Message..."
+              disabled
+              className="flex-1 px-4 py-2 text-sm border border-gray-300 rounded-full focus:border-transparent focus:outline-none focus:ring-2 focus:ring-red-500"
+            />
+            <button
+              type="submit"
+              disabled
+              title="Sending will be enabled after integration"
+              className="px-3 py-2 text-xs font-medium text-gray-700 bg-gray-200 rounded-full"
+            >
+              Gửi
+            </button>
+          </form>
+          <div className="mt-2 text-center text-[11px] text-gray-400">
+            Privacy
+          </div>
+        </div>
+      </div>
+    )}
+  </div>
+);
+
+}
+
+

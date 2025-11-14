@@ -1,4 +1,4 @@
-// App.jsx
+﻿// App.jsx
 import React, { useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/auth.context.jsx";
@@ -7,11 +7,13 @@ import { ThemeProvider } from "./context/theme.context.jsx";
 
 import Register from "./pages/authentication/Register.jsx";
 import Login from "./pages/authentication/Login.jsx";
+import GoogleOtp from "./pages/authentication/GoogleOtp.jsx";
 import ForgotPassword from "./pages/authentication/ForgotPassword.jsx";
 import VerifyCode from "./pages/authentication/VerifyCode.jsx";
 import ResetPassword from "./pages/authentication/ResetPassword.jsx";
 import Landing from "./pages/landing/Landing.jsx";
 import NutritionAI from "./pages/nutrition/NutritionAI.jsx";
+import NutritionDemo from "./pages/nutrition/NutritionDemo.jsx";
 import NutritionPersonalize from "./pages/nutrition/NutritionPersonalize.jsx";
 import Dashboard from "./pages/user/Dashboard.jsx";
 import Modeling from "./pages/model3D/Modeling.jsx";
@@ -24,6 +26,7 @@ import Exercise from "./pages/exercises/Exercise.jsx";
 import PlanNew from "./pages/plans/PlanNew.jsx";
 import PlanPicker from "./pages/plans/PlanPicker.jsx";
 import PlanDetail from "./pages/plans/PlanDetail.jsx";
+import PlanEdit from "./pages/plans/PlanEdit.jsx"; // Thêm import
 import Logout from "./pages/authentication/Logout.jsx";
 import NotFoundRedirect from "./pages/system/NotFoundRedirect.jsx";
 import WorkoutRun from "./pages/workout/WorkoutRun.jsx";
@@ -59,10 +62,12 @@ import AdminRevenue from "./pages/admin/AdminRevenue.jsx";
 
 import AdminUsers from "./pages/admin/AdminUsers.jsx";
 import AdminPopularExercises from "./pages/admin/PopularExercises.jsx";
+import AdminSupportReports from "./pages/admin/SupportReports.jsx";
 
 // Account pages
 import PersonalInfo from "./pages/account/PersonalInfo.jsx";
 import ChangePassword from "./pages/account/ChangePassword.jsx";
+import NotificationsCenter from "./pages/account/NotificationsCenter.jsx";
 // import Activity from "./pages/account/Activity.jsx";
 
 // Profile pages (only Avatar kept)
@@ -75,10 +80,11 @@ import Theme from "./pages/settings/Theme.jsx";
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth();
+  const location = useLocation();
   if (loading) {
     return <div className="flex items-center justify-center h-screen">Loading...</div>;
   }
-  return user ? children : <Navigate to="/login" replace />;
+  return user ? children : <Navigate to="/login" replace state={{ from: location.pathname }} />;
 }
 
 function AdminRoute({ children }) {
@@ -114,6 +120,7 @@ function App() {
       <Router>
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/login/otp" element={<GoogleOtp />} />
           <Route path="/register" element={<Register />} />
           <Route path="/onboarding" element={<OnboardingEntry />} />
           <Route path="/onboarding" element={<Navigate to="/onboarding/age" replace />} />
@@ -131,7 +138,15 @@ function App() {
 
 
           <Route path="/" element={<Landing />} />
-          <Route path="/nutrition-ai" element={<NutritionAI />} />
+          <Route
+            path="/nutrition-ai"
+            element={
+              <PrivateRoute>
+                <NutritionAI />
+              </PrivateRoute>
+            }
+          />
+          <Route path="/nutrition-demo" element={<NutritionDemo />} />
           <Route path="/nutrition-ai/personalize" element={<NutritionPersonalize />} />
           <Route path="/pricing" element={<Pricing />} />
           <Route path="/payment/success" element={<PaymentSuccess />} />
@@ -176,14 +191,6 @@ function App() {
             }
           />
           <Route
-            path="/plans/select"
-            element={
-              <PrivateRoute>
-                <PlanPicker />
-              </PrivateRoute>
-            }
-          />
-          <Route
             path="/plans/new"
             element={
               <PrivateRoute>
@@ -191,7 +198,14 @@ function App() {
               </PrivateRoute>
             }
           />
-
+          <Route
+            path="/plans/edit/:planId"
+            element={
+              <PrivateRoute>
+                <PlanEdit />
+              </PrivateRoute>
+            }
+          />
           <Route
             path="/exercises/:id"
             element={
@@ -241,6 +255,22 @@ function App() {
             element={
               <PrivateRoute>
                 <ChangePassword />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/notifications"
+            element={
+              <PrivateRoute>
+                <NotificationsCenter />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/settings/notifications"
+            element={
+              <PrivateRoute>
+                <NotificationsCenter />
               </PrivateRoute>
             }
           />
@@ -295,8 +325,9 @@ function App() {
             <Route path="user-plans/:userId" element={<UserPlanDetails />} />
 <Route path="user-plans/:userId/plan/:planId" element={<AdminPlanDetail />} />
 
-            {/* Thêm route này nếu bạn dùng trang AdminUsers */}
+            {/* ThÃªm route nÃ y náº¿u báº¡n dÃ¹ng trang AdminUsers */}
             <Route path="users" element={<AdminUsers />} />
+            <Route path="support" element={<AdminSupportReports />} />
           </Route>
 
 

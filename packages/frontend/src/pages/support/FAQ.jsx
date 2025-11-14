@@ -1,10 +1,31 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import HeaderLogin from "../../components/header/HeaderLogin.jsx";
+import { submitBugReportApi } from "../../lib/api.js";
+import { useAuth } from "../../context/auth.context.jsx";
 
 export default function FAQ() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [openItems, setOpenItems] = useState(new Set());
+  const { user } = useAuth();
+
+  const [reportForm, setReportForm] = useState({
+    title: "",
+    description: "",
+    steps: "",
+    severity: "medium",
+    contactEmail: "",
+  });
+  const [screenshotFile, setScreenshotFile] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState("");
+  const [reportStatus, setReportStatus] = useState({ type: "", message: "" });
+  const [sending, setSending] = useState(false);
+
+  useEffect(() => {
+    if (user?.email) {
+      setReportForm((prev) => ({ ...prev, contactEmail: user.email }));
+    }
+  }, [user?.email]);
 
   const categories = [
     { value: "all", label: "Tất cả" },
@@ -95,6 +116,70 @@ export default function FAQ() {
       newOpenItems.add(id);
     }
     setOpenItems(newOpenItems);
+  };
+
+  const handleReportChange = (field, value) => {
+    setReportForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleScreenshotChange = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      setScreenshotFile(null);
+      setPreviewUrl("");
+      return;
+    }
+    setScreenshotFile(file);
+    const blobUrl = URL.createObjectURL(file);
+    setPreviewUrl((oldUrl) => {
+      if (oldUrl) URL.revokeObjectURL(oldUrl);
+      return blobUrl;
+    });
+  };
+
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+  }, [previewUrl]);
+
+  const handleSubmitReport = async (event) => {
+    event.preventDefault();
+    setSending(true);
+    setReportStatus({ type: "", message: "" });
+    try {
+      await submitBugReportApi({
+        ...reportForm,
+        screenshot: screenshotFile,
+      });
+      setReportStatus({
+        type: "success",
+        message: "Đã gửi báo lỗi đến admin. Cảm ơn bạn!",
+      });
+      setReportForm({
+        title: "",
+        description: "",
+        steps: "",
+        severity: "medium",
+        contactEmail: user?.email || "",
+      });
+      setScreenshotFile(null);
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+      setPreviewUrl("");
+    } catch (err) {
+      const message =
+        err?.response?.data?.message ||
+        "Không thể gửi báo lỗi. Vui lòng thử lại.";
+      setReportStatus({ type: "error", message });
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const scrollToBugForm = () => {
+    document
+      .getElementById("bug-report-form")
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
   const filteredFAQs = faqData.filter(faq => {
@@ -191,14 +276,123 @@ export default function FAQ() {
             <h3 className="text-lg font-semibold text-gray-900 mb-2">Không tìm thấy câu trả lời?</h3>
             <p className="text-gray-600 mb-4">Đội ngũ hỗ trợ của chúng tôi sẵn sàng giúp đỡ bạn</p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <button className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+              <button
+                className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                onClick={scrollToBugForm}
+              >
                 Liên hệ hỗ trợ
               </button>
-              <button className="px-6 py-2 border border-blue-600 text-blue-600 rounded-md hover:bg-blue-50">
-                Gửi email
+              <button
+                className="px-6 py-2 border border-blue-600 text-blue-600 rounded-md hover:bg-blue-50"
+                onClick={scrollToBugForm}
+              >
+                Gửi báo lỗi
               </button>
             </div>
           </div>
+        </div>
+
+        {/* Bug Report Form */}
+        <div id="bug-report-form" className="mt-12 bg-white rounded-lg shadow p-6 border border-gray-100">
+          <h3 className="text-xl font-semibold text-gray-900 mb-2">Gửi báo lỗi cho admin</h3>
+          <p className="text-gray-600 mb-6">
+            Mô tả vấn đề bạn gặp phải, đính kèm ảnh chụp màn hình (nếu có). Admin sẽ phản hồi qua email.
+          </p>
+          {reportStatus.message && (
+            <div
+              className={`mb-4 rounded-md p-3 text-sm ${
+                reportStatus.type === "success"
+                  ? "bg-green-50 text-green-700 border border-green-200"
+                  : "bg-red-50 text-red-700 border border-red-200"
+              }`}
+            >
+              {reportStatus.message}
+            </div>
+          )}
+          <form className="space-y-5" onSubmit={handleSubmitReport}>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Tiêu đề</label>
+              <input
+                type="text"
+                value={reportForm.title}
+                onChange={(e) => handleReportChange("title", e.target.value)}
+                placeholder="Ví dụ: Không thể tải ảnh ở trang Nutrition AI"
+                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Mô tả lỗi *</label>
+              <textarea
+                value={reportForm.description}
+                onChange={(e) => handleReportChange("description", e.target.value)}
+                required
+                rows={4}
+                placeholder="Mô tả chi tiết lỗi bạn gặp phải..."
+                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Các bước tái hiện</label>
+              <textarea
+                value={reportForm.steps}
+                onChange={(e) => handleReportChange("steps", e.target.value)}
+                rows={3}
+                placeholder="1. Mở trang Nutrition AI\n2. Tải ảnh bữa ăn\n3. Hiện lỗi 500..."
+                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Mức độ</label>
+                <select
+                  value={reportForm.severity}
+                  onChange={(e) => handleReportChange("severity", e.target.value)}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="low">Thấp - chỉ gây khó chịu nhẹ</option>
+                  <option value="medium">Trung bình - ảnh hưởng một phần</option>
+                  <option value="high">Cao - không thể sử dụng tính năng</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Email liên hệ</label>
+                <input
+                  type="email"
+                  value={reportForm.contactEmail}
+                  onChange={(e) => handleReportChange("contactEmail", e.target.value)}
+                  placeholder="you@example.com"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Ảnh chụp màn hình</label>
+              <div className="flex flex-col gap-3">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleScreenshotChange}
+                  className="text-sm text-gray-600"
+                />
+                {previewUrl && (
+                  <img
+                    src={previewUrl}
+                    alt="Screenshot preview"
+                    className="max-h-48 rounded-md border border-gray-200 object-contain bg-gray-50 p-1"
+                  />
+                )}
+              </div>
+            </div>
+            <div className="flex justify-end">
+              <button
+                type="submit"
+                disabled={sending}
+                className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-60"
+              >
+                {sending ? "Đang gửi..." : "Gửi báo lỗi"}
+              </button>
+            </div>
+          </form>
         </div>
       </div>
     </div>

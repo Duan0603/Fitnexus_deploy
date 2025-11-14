@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useAuth } from "../../context/auth.context.jsx";
 import HeaderLogin from "../../components/header/HeaderLogin.jsx";
 import { api, endpoints } from "../../lib/api.js";
+import { env } from "../../config/env.js";
 
 export default function Avatar() {
   const { user, updateUserData } = useAuth();
@@ -141,7 +142,7 @@ export default function Avatar() {
                 <div className="w-32 h-32 rounded-full overflow-hidden bg-gray-100 flex items-center justify-center">
                   {(() => {
                     if (preview) return <img src={preview} alt="Preview" className="w-full h-full object-cover" />;
-                    const be = import.meta.env.VITE_BACKEND_URL || "http://localhost:3001";
+                    const be = env.backendUrl;
                     const raw = user?.avatarUrl || "";
                     let src = null;
                     if (raw) {

@@ -1,15 +1,22 @@
-// src/pages/admin/AdminUsers.jsx
+// src/pages/admin/AdminUsers.jsx (Unified)
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
 import { useAuth } from "../../context/auth.context.jsx";
-import { getAdminUsers } from "../../lib/api.js";
-const PLANS = ["ALL", "FREE", "PREMIUM"];
-const ACTIVE_WINDOW_MIN = 5; // trong vòng 5 phút thì coi là ACTIVE
-const AUTORELOAD_SEC = 30;   // auto reload danh sách mỗi 30s
+import { getAdminUsers, getAdminUsersStats } from "../../lib/api.js";
+import {
+  Plus,
+  Search,
+  Filter,
+  Download,
+  Edit,
+  Lock,
+  Trash2,
+  MoreVertical,
+} from "lucide-react";
+
+const AUTORELOAD_SEC = 30;
 
 export default function AdminUsers() {
   const { user } = useAuth();
-  const [searchParams] = useSearchParams();
 
   const [items, setItems] = useState([]);
   const [total, setTotal] = useState(0);
@@ -17,47 +24,62 @@ export default function AdminUsers() {
   const [offset, setOffset] = useState(0);
   const [search, setSearch] = useState("");
   const [planFilter, setPlanFilter] = useState("ALL");
+  const [roleFilter, setRoleFilter] = useState("ALL");
+  const [statusFilter, setStatusFilter] = useState("ALL");
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-
-  // đồng bộ query plan -> state
-  useEffect(() => {
-    const p = (searchParams.get("plan") || "ALL").toUpperCase();
-    setPlanFilter(PLANS.includes(p) ? p : "ALL");
-    setOffset(0);
-  }, [searchParams]);
+  const [stats, setStats] = useState({
+    total: 0,
+    role: { ADMIN: 0, TRAINER: 0, USER: 0 },
+    plan: { FREE: 0, PREMIUM: 0 },
+    status: { ACTIVE: 0, INACTIVE: 0 },
+  });
 
   const load = async () => {
     setLoading(true);
-    setError(null);
     try {
       const res = await getAdminUsers({
         limit,
         offset,
         search: search.trim(),
         plan: planFilter !== "ALL" ? planFilter : undefined,
+        role: roleFilter !== "ALL" ? roleFilter : undefined,
       });
       setItems(res?.data?.items || []);
       setTotal(res?.data?.total || 0);
-    } catch (e) {
-      setError(e?.response?.data || { message: e.message });
     } finally {
       setLoading(false);
     }
   };
 
+  const loadStats = async () => {
+    try {
+      const res = await getAdminUsersStats();
+      const d = res?.data || {};
+      setStats({
+        total: d.total || 0,
+        role: d.role || { ADMIN: 0, TRAINER: 0, USER: 0 },
+        plan: d.plan || { FREE: 0, PREMIUM: 0 },
+        status: d.status || { ACTIVE: 0, INACTIVE: 0 },
+      });
+    } catch {}
+  };
+
   useEffect(() => {
     load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [limit, offset, planFilter]);
+  }, [limit, offset, planFilter, roleFilter]);
+  useEffect(() => {
+    loadStats();
+  }, []);
 
-  // Tự động làm mới danh sách
+  // Auto refresh
   const timerRef = useRef(null);
   useEffect(() => {
-    timerRef.current = setInterval(() => load(), AUTORELOAD_SEC * 1000);
+    timerRef.current = setInterval(() => {
+      load();
+      loadStats();
+    }, AUTORELOAD_SEC * 1000);
     return () => clearInterval(timerRef.current);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [limit, offset, planFilter, search]);
+  }, [limit, offset, planFilter, roleFilter, search]);
 
   const onSearch = async (e) => {
     e.preventDefault();
@@ -65,194 +87,366 @@ export default function AdminUsers() {
     await load();
   };
 
-  const page = Math.floor(offset / limit) + 1;
-  const pages = Math.max(1, Math.ceil(total / limit));
-
-  // ===== Helpers hiển thị =====
-  const PlanBadge = ({ plan }) => (
-    <span className="inline-flex px-2 text-xs font-semibold leading-5 text-green-800 bg-green-100 rounded-full">
-      {plan}
-    </span>
-  );
-
-  function getActivityStatus(u) {
-    // nếu DB đang gắn BANNED thì hiển thị đỏ, ưu tiên hơn
-    if (String(u.status || "").toUpperCase() === "BANNED") return "BANNED";
-    if (!u.lastLoginAt) return "INACTIVE";
-    const last = new Date(u.lastLoginAt);
-    if (isNaN(+last)) return "INACTIVE";
-    const diffMin = (Date.now() - last.getTime()) / (1000 * 60);
-    return diffMin <= ACTIVE_WINDOW_MIN ? "ACTIVE" : "INACTIVE";
-  }
-
-  const StatusBadge = ({ user }) => {
-    const s = getActivityStatus(user);
-    const cls =
-      s === "ACTIVE"
-        ? "bg-green-100 text-green-800"
-        : s === "BANNED"
-        ? "bg-red-100 text-red-800"
-        : "bg-yellow-100 text-yellow-800";
-    const lastSeen =
-      user.lastLoginAt
-        ? new Date(user.lastLoginAt).toLocaleString()
-        : "Never";
-
-    return (
-      <span
-        title={`Last seen: ${lastSeen}`}
-        className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${cls}`}
-      >
-        {s}
-      </span>
+  const filteredItems = useMemo(() => {
+    if (statusFilter === "ALL") return items;
+    return items.filter(
+      (u) => String(u.status || "").toUpperCase() === statusFilter
     );
-  };
+  }, [items, statusFilter]);
+
+  const displayItems =
+    filteredItems.length || statusFilter !== "ALL" ? filteredItems : items;
+  const displayTotal = statusFilter === "ALL" ? total : filteredItems.length;
+  const page = Math.floor(offset / limit) + 1;
+  const pages = Math.max(1, Math.ceil(displayTotal / limit));
 
   return (
-    <div className="min-h-screen py-8 bg-gray-50">
-      <div className="px-4 mx-auto max-w-7xl sm:px-6 lg:px-8">
-      
-        <div className="mb-8">
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <div className="bg-white border-b">
+        <div className="px-6 py-4 mx-auto max-w-7xl">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">User Management</h1>
+              <h1 className="text-2xl font-bold text-gray-900">
+                User Management
+              </h1>
               <p className="mt-1 text-sm text-gray-500">
                 Logged in as:{" "}
-                <span className="font-medium text-indigo-600">{user?.username}</span>{" "}
-                ({user?.role})
+                <span className="font-medium">{user?.username}</span> (
+                {user?.role})
               </p>
             </div>
-            <div className="px-4 py-2 text-sm text-gray-600 bg-white border rounded-lg shadow-sm">
-              Total Users: <span className="font-semibold text-indigo-600">{total}</span>
-            </div>
+            <button className="flex items-center gap-2 px-4 py-2 text-white transition bg-blue-600 rounded-lg hover:bg-blue-700">
+              <Plus size={20} />
+              Add User
+            </button>
           </div>
         </div>
+      </div>
 
-        {/* Search + Filters */}
-        <div className="p-4 mb-6 bg-white border rounded-lg shadow-sm">
-          <form className="flex flex-col gap-4 md:flex-row" onSubmit={onSearch}>
-            <div className="flex-1 max-w-lg">
-              <div className="relative">
-                <input
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search by username or email..."
-                  className="w-full py-2 pl-10 pr-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                />
-                <div className="absolute left-3 top-2.5 text-gray-400">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
+      <div className="px-6 py-6 mx-auto max-w-7xl">
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 gap-4 mb-6 md:grid-cols-4">
+          {[
+            { label: "Total Users", value: stats.total, color: "bg-blue-500" },
+            {
+              label: "Active",
+              value: stats.status.ACTIVE,
+              color: "bg-green-500",
+            },
+            {
+              label: "Premium",
+              value: stats.plan.PREMIUM,
+              color: "bg-amber-500",
+            },
+            { label: "Admins", value: stats.role.ADMIN, color: "bg-red-500" },
+          ].map((stat, index) => (
+            <div
+              key={index}
+              className="p-5 bg-white border border-gray-100 rounded-lg shadow-sm"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="mb-1 text-sm text-gray-600">{stat.label}</p>
+                  <p className="text-3xl font-bold text-gray-900">
+                    {stat.value}
+                  </p>
                 </div>
+                <div
+                  className={`w-12 h-12 ${stat.color} rounded-lg opacity-20`}
+                ></div>
               </div>
             </div>
+          ))}
+        </div>
 
-            <div className="flex items-center gap-2">
-              <label className="text-sm text-gray-600">Plan:</label>
+        {/* Filters Section */}
+        <div className="p-5 mb-6 bg-white border border-gray-200 rounded-lg shadow-sm">
+          {/* Search Bar */}
+          <form onSubmit={onSearch} className="mb-4">
+            <div className="relative">
+              <Search
+                className="absolute text-gray-400 transform -translate-y-1/2 left-3 top-1/2"
+                size={20}
+              />
+              <input
+                type="text"
+                placeholder="Search by username or email..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+          </form>
+
+          {/* Filter Pills */}
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2 text-sm text-gray-600">
+              <Filter size={16} />
+              <span className="font-medium">Filters:</span>
+            </div>
+
+            {/* Role Filter */}
+            <div className="relative">
               <select
-                className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                value={roleFilter}
+                onChange={(e) => {
+                  setRoleFilter(e.target.value);
+                  setOffset(0);
+                }}
+                className="px-4 py-2 pr-10 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg appearance-none cursor-pointer bg-gray-50 hover:bg-gray-100 focus:ring-2 focus:ring-blue-500"
+              >
+                {[
+                  { value: "ALL", label: "All Roles", count: stats.total },
+                  { value: "ADMIN", label: "Admin", count: stats.role.ADMIN },
+                  {
+                    value: "TRAINER",
+                    label: "Trainer",
+                    count: stats.role.TRAINER,
+                  },
+                  { value: "USER", label: "User", count: stats.role.USER },
+                ].map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label} ({o.count})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Plan Filter */}
+            <div className="relative">
+              <select
                 value={planFilter}
                 onChange={(e) => {
                   setPlanFilter(e.target.value);
                   setOffset(0);
                 }}
+                className="px-4 py-2 pr-10 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg appearance-none cursor-pointer bg-gray-50 hover:bg-gray-100 focus:ring-2 focus:ring-blue-500"
               >
-                {PLANS.map((p) => (
-                  <option key={p} value={p}>{p}</option>
+                {[
+                  { value: "ALL", label: "All Plans", count: stats.total },
+                  { value: "FREE", label: "Free", count: stats.plan.FREE },
+                  {
+                    value: "PREMIUM",
+                    label: "Premium",
+                    count: stats.plan.PREMIUM,
+                  },
+                ].map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label} ({o.count})
+                  </option>
                 ))}
               </select>
             </div>
 
-            <div className="flex items-center gap-3">
-              <button
-                type="submit"
-                className="px-6 py-2 text-white transition-colors bg-indigo-600 rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+            {/* Status Filter */}
+            <div className="relative">
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="px-4 py-2 pr-10 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg appearance-none cursor-pointer bg-gray-50 hover:bg-gray-100 focus:ring-2 focus:ring-blue-500"
               >
-                Search
-              </button>
-              {search || planFilter !== "ALL" ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSearch("");
-                    setPlanFilter("ALL");
-                    setOffset(0);
-                    load();
-                  }}
-                  className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
-                >
-                  Reset
-                </button>
-              ) : null}
+                {[
+                  { value: "ALL", label: "All Status", count: stats.total },
+                  {
+                    value: "ACTIVE",
+                    label: "Active",
+                    count: stats.status.ACTIVE,
+                  },
+                  {
+                    value: "INACTIVE",
+                    label: "Inactive",
+                    count: stats.status.INACTIVE,
+                  },
+                ].map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label} ({o.count})
+                  </option>
+                ))}
+              </select>
             </div>
-          </form>
-          <div className="mt-2 text-xs text-gray-400">
-            Auto refresh every {AUTORELOAD_SEC}s • Active window: {ACTIVE_WINDOW_MIN} minutes
+
+            {(roleFilter !== "ALL" ||
+              planFilter !== "ALL" ||
+              statusFilter !== "ALL" ||
+              search) && (
+              <button
+                onClick={() => {
+                  setRoleFilter("ALL");
+                  setPlanFilter("ALL");
+                  setStatusFilter("ALL");
+                  setSearch("");
+                  setOffset(0);
+                  load();
+                }}
+                className="text-sm font-medium text-blue-600 hover:text-blue-700"
+              >
+                Clear all
+              </button>
+            )}
+
+            {/* Export Button */}
+            <button
+              onClick={() => {
+                const rows = displayItems.length ? displayItems : items;
+                const header = [
+                  "ID",
+                  "Username",
+                  "Email",
+                  "Role",
+                  "Plan",
+                  "Status",
+                  "Created",
+                ];
+                const csv = [header.join(",")]
+                  .concat(
+                    rows.map((u) =>
+                      [
+                        u.user_id,
+                        u.username,
+                        u.email,
+                        u.role,
+                        u.plan,
+                        u.status,
+                        u.created_at,
+                      ]
+                        .map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`)
+                        .join(",")
+                    )
+                  )
+                  .join("\n");
+                const blob = new Blob([csv], {
+                  type: "text/csv;charset=utf-8;",
+                });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = "users.csv";
+                a.click();
+                URL.revokeObjectURL(url);
+              }}
+              className="flex items-center gap-2 px-3 py-2 ml-auto text-sm text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"
+            >
+              <Download size={16} />
+              Export
+            </button>
           </div>
         </div>
 
         {/* Table */}
-        <div className="overflow-hidden bg-white border rounded-lg shadow-sm">
+        <div className="overflow-hidden bg-white border border-gray-200 rounded-lg shadow-sm">
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+            <table className="w-full">
+              <thead className="border-b border-gray-200 bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">ID</th>
-                  <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">Username</th>
-                  <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">Email</th>
-                  <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">Role</th>
-                  <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">Plan</th>
-                  <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">Loại tài khoản</th>
-                  <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">Hết hạn Premium</th>
-                  <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">Status</th>
-                  <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">Last Login</th>
+                  <th className="px-6 py-3 text-xs font-semibold tracking-wider text-left text-gray-600 uppercase">
+                    ID
+                  </th>
+                  <th className="px-6 py-3 text-xs font-semibold tracking-wider text-left text-gray-600 uppercase">
+                    Username
+                  </th>
+                  <th className="px-6 py-3 text-xs font-semibold tracking-wider text-left text-gray-600 uppercase">
+                    Email
+                  </th>
+                  <th className="px-6 py-3 text-xs font-semibold tracking-wider text-left text-gray-600 uppercase">
+                    Role
+                  </th>
+                  <th className="px-6 py-3 text-xs font-semibold tracking-wider text-left text-gray-600 uppercase">
+                    Plan
+                  </th>
+                  <th className="px-6 py-3 text-xs font-semibold tracking-wider text-left text-gray-600 uppercase">
+                    Status
+                  </th>
+                  <th className="px-6 py-3 text-xs font-semibold tracking-wider text-right text-gray-600 uppercase">
+                    Actions
+                  </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="divide-y divide-gray-200">
                 {loading ? (
                   <tr>
-                    <td colSpan={9} className="px-6 py-4 text-sm text-center text-gray-500">
-                      <div className="flex items-center justify-center">
-                        <svg className="w-5 h-5 mr-3 text-indigo-600 animate-spin" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                        </svg>
-                        Loading...
-                      </div>
+                    <td
+                      colSpan={7}
+                      className="px-6 py-6 text-sm text-center text-gray-500"
+                    >
+                      Loading...
                     </td>
                   </tr>
-                ) : items.length === 0 ? (
+                ) : displayItems.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="px-6 py-4 text-sm text-center text-gray-500">
+                    <td
+                      colSpan={7}
+                      className="px-6 py-6 text-sm text-center text-gray-500"
+                    >
                       No users found
                     </td>
                   </tr>
                 ) : (
-                  items.map((u) => (
-                    <tr key={u.user_id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">{u.user_id}</td>
-                      <td className="px-6 py-4 text-sm font-medium text-gray-900 whitespace-nowrap">{u.username}</td>
-                      <td className="px-6 py-4 text-sm text-gray-500 whitespace-nowrap">{u.email}</td>
-
-                      <td className="px-6 py-4 text-sm text-gray-500 whitespace-nowrap">
-                        <span className="inline-flex px-2 text-xs font-semibold leading-5 text-blue-800 bg-blue-100 rounded-full">
+                  displayItems.map((u) => (
+                    <tr key={u.user_id} className="transition hover:bg-gray-50">
+                      <td className="px-6 py-4 text-sm text-gray-900">
+                        {u.user_id}
+                      </td>
+                      <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                        {u.username}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-600">
+                        {u.email}
+                      </td>
+                      <td className="px-6 py-4">
+                        <span
+                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            u.role === "ADMIN"
+                              ? "bg-red-100 text-red-800"
+                              : "bg-blue-100 text-blue-800"
+                          }`}
+                        >
                           {u.role}
                         </span>
                       </td>
-
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <PlanBadge plan={u.plan} />
+                      <td className="px-6 py-4">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                          {u.plan}
+                        </span>
                       </td>
-
-                      <td className="px-6 py-4 whitespace-nowrap"><StatusBadge user={u} /></td>
-
-                      <td className="px-6 py-4 text-sm text-gray-500 whitespace-nowrap">{u.user_type || '-'}</td>
-                      <td className="px-6 py-4 text-sm text-gray-500 whitespace-nowrap">
-                        {u.user_exp_date ? new Date(u.user_exp_date).toLocaleString() : '-'}
+                      <td className="px-6 py-4">
+                        <span
+                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            String(u.status).toUpperCase() === "ACTIVE"
+                              ? "bg-green-100 text-green-800"
+                              : "bg-yellow-100 text-yellow-800"
+                          }`}
+                        >
+                          {u.status}
+                        </span>
                       </td>
-
-                      <td className="px-6 py-4 text-sm text-gray-500 whitespace-nowrap">
-                        {u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString() : "-"}
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            className="p-1.5 hover:bg-gray-100 rounded transition"
+                            title="Edit"
+                          >
+                            <Edit size={16} className="text-gray-600" />
+                          </button>
+                          <button
+                            className="p-1.5 hover:bg-gray-100 rounded transition"
+                            title="Lock/Unlock"
+                          >
+                            <Lock size={16} className="text-gray-600" />
+                          </button>
+                          <button
+                            className="p-1.5 hover:bg-gray-100 rounded transition"
+                            title="Delete"
+                          >
+                            <Trash2 size={16} className="text-red-600" />
+                          </button>
+                          <button
+                            className="p-1.5 hover:bg-gray-100 rounded transition"
+                            title="More"
+                          >
+                            <MoreVertical size={16} className="text-gray-600" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -260,45 +454,52 @@ export default function AdminUsers() {
               </tbody>
             </table>
           </div>
-        </div>
-
-        {/* Pagination */}
-        <div className="flex items-center justify-between px-4 py-3 mt-6 bg-white border rounded-lg shadow-sm">
-          <div className="flex items-center gap-2">
-            <button
-              className="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
-              onClick={() => setOffset(Math.max(0, offset - limit))}
-              disabled={offset === 0}
-            >
-              Previous
-            </button>
-            <span className="text-sm text-gray-700">
-              Page <span className="font-medium">{page}</span> of <span className="font-medium">{pages}</span>
-            </span>
-            <button
-              className="inline-flex items-center px-4 py-2 ml-3 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
-              onClick={() => setOffset(offset + limit)}
-              disabled={offset + limit >= total}
-            >
-              Next
-            </button>
-          </div>
-          <div className="flex items-center">
-            <span className="mr-2 text-sm text-gray-700">Show:</span>
-            <select
-              className="border border-gray-300 rounded-md shadow-sm py-1.5 pl-3 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-              value={limit}
-              onChange={(e) => {
-                setLimit(parseInt(e.target.value, 10));
-                setOffset(0);
-              }}
-            >
-              {[10, 20, 50, 100].map((n) => (
-                <option key={n} value={n}>
-                  {n} per page
-                </option>
-              ))}
-            </select>
+          {/* Pagination */}
+          <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200">
+            <div className="text-sm text-gray-600">
+              Showing{" "}
+              <span className="font-medium">
+                {Math.min(displayTotal, offset + 1)}
+              </span>
+              -
+              <span className="font-medium">
+                {Math.min(displayTotal, offset + displayItems.length)}
+              </span>{" "}
+              of <span className="font-medium">{displayTotal}</span> users
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                className="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50"
+                disabled={offset === 0}
+                onClick={() => setOffset(Math.max(0, offset - limit))}
+              >
+                Previous
+              </button>
+              <span className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded">
+                {page}
+              </span>
+              <button
+                className="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50"
+                disabled={offset + limit >= total}
+                onClick={() => setOffset(offset + limit)}
+              >
+                Next
+              </button>
+              <select
+                className="px-2 py-1 ml-2 text-sm border border-gray-300 rounded"
+                value={limit}
+                onChange={(e) => {
+                  setLimit(parseInt(e.target.value, 10));
+                  setOffset(0);
+                }}
+              >
+                {[10, 20, 50, 100].map((n) => (
+                  <option key={n} value={n}>
+                    {n}/page
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
       </div>

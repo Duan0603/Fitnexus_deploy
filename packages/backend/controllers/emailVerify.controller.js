@@ -4,6 +4,7 @@ import { redis } from "../utils/redisClient.js";
 import User from "../models/user.model.js";
 import { sendMail } from "../utils/mailer.js";
 import { buildEmailOtpTemplate } from "../utils/emailTemplates.js";
+import { notifyUser } from "../services/notification.service.js";
 
 /** Tạo mã 6 số */
 function genOTP() {
@@ -120,6 +121,12 @@ export async function verifyOtp(req, res, next) {
 
     // (tuỳ mục đích) đánh dấu user.email_verified = true … nếu bạn có cột đó
     // await user.update({ emailVerifiedAt: new Date() });
+
+    notifyUser(user.user_id, {
+      type: "email",
+      title: "Email xác thực thành công",
+      body: "Bạn đã xác thực email thành công. Tiếp tục khám phá Fitnexus nhé!",
+    }).catch(() => {});
 
     return res.json({ success: true, message: "Email verified successfully" });
   } catch (err) {

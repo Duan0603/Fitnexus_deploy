@@ -1,9 +1,55 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/auth.context.jsx";
-import { getMyPlansApi, addExerciseToPlanApi, listWorkoutSessionsApi } from "../../lib/api.js";
+import { getMyPlansApi, addExerciseToPlanApi, listWorkoutSessionsApi, deletePlanApi } from "../../lib/api.js";
 
 export default function PlanPicker() {
+  // Modal hiển thị khi người dùng chưa có plan nào
+  function NoPlansModal({ onClose, onCreatePlan }) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
+        <div className="w-full max-w-md p-6 mx-4 bg-white shadow-2xl rounded-xl" onClick={(e) => e.stopPropagation()}>
+          <h3 className="mb-2 text-xl font-semibold text-gray-900">
+            Chưa có kế hoạch luyện tập
+          </h3>
+          <p className="mb-6 text-sm text-gray-600">
+            Bạn cần tạo một kế hoạch trước khi thêm bài tập. Bạn có muốn tạo kế hoạch mới ngay bây giờ không?
+          </p>
+          <div className="space-y-3">
+            <button onClick={onCreatePlan} className="w-full px-4 py-3 text-sm font-semibold text-white transition-colors bg-green-600 rounded-lg hover:bg-green-700">
+              Tạo kế hoạch mới
+            </button>
+            <button onClick={onClose} className="w-full px-4 py-3 text-sm font-medium text-gray-700 transition-colors border-2 border-gray-300 rounded-lg hover:bg-gray-50">
+              Để sau
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Modal xác nhận xóa plan
+  function DeleteConfirmationModal({ planName, onConfirm, onCancel, isDeleting }) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onCancel}>
+        <div className="w-full max-w-md p-6 mx-4 bg-white shadow-2xl rounded-xl" onClick={(e) => e.stopPropagation()}>
+          <h3 className="mb-2 text-xl font-semibold text-red-800">Xác nhận xóa</h3>
+          <p className="mb-6 text-sm text-gray-600">
+            Bạn có chắc chắn muốn xóa kế hoạch "<b>{planName}</b>"? Hành động này không thể hoàn tác.
+          </p>
+          <div className="flex gap-4">
+            <button onClick={onCancel} disabled={isDeleting} className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50">
+              Hủy
+            </button>
+            <button onClick={onConfirm} disabled={isDeleting} className="flex-1 px-4 py-2 text-sm font-semibold text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-60">
+              {isDeleting ? "Đang xóa..." : "Xóa kế hoạch"}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
@@ -19,6 +65,9 @@ export default function PlanPicker() {
   const [items, setItems] = useState([]);
   const [completedPlanIds, setCompletedPlanIds] = useState(new Set());
   const [selectedPlanId, setSelectedPlanId] = useState(null);
+  const [showNoPlansModal, setShowNoPlansModal] = useState(false);
+  const [deletingPlan, setDeletingPlan] = useState(null); // State cho modal xóa
+  const [isDeleting, setIsDeleting] = useState(false);
   const [saving, setSaving] = useState(false);
 
 
@@ -31,6 +80,10 @@ export default function PlanPicker() {
       const plans = Array.isArray(list) ? list : [];
       setItems(plans);
 
+      if (plans.length === 0) {
+        setShowNoPlansModal(true);
+      }
+
       // Fetch completed sessions to partition plans
       try {
         const sess = await listWorkoutSessionsApi({ status: 'completed', limit: 100, offset: 0 });
@@ -40,6 +93,7 @@ export default function PlanPicker() {
       } catch {}
     } catch (e) {
       // Nếu BE chưa có endpoint list, im lặng và để người dùng tạo mới
+      setShowNoPlansModal(true);
       setItems([]);
       setCompletedPlanIds(new Set());
     } finally {
@@ -52,7 +106,14 @@ export default function PlanPicker() {
   }, []);
 
   const handleAddToSelected = async () => {
-    if (!exerciseId || !selectedPlanId) return;
+    // Nếu chưa có plan nào, hiển thị modal yêu cầu tạo plan
+    if (items.length === 0) {
+      setShowNoPlansModal(true);
+      return;
+    }
+
+    // Nếu có plan nhưng chưa chọn, hiển thị lỗi
+    if (!exerciseId || !selectedPlanId) return; // Nút đã disabled nên trường hợp này ít xảy ra
     setSaving(true);
     setError(null);
     try {
@@ -104,6 +165,23 @@ export default function PlanPicker() {
     }
   };
 
+  const handleDelete = async (planId) => {
+    setIsDeleting(true);
+    setError(null);
+    try {
+      await deletePlanApi(planId);
+      // Xóa plan khỏi state để cập nhật UI
+      setItems(prevItems => prevItems.filter(p => p.plan_id !== planId));
+      if (selectedPlanId === planId) {
+        setSelectedPlanId(null); // Bỏ chọn nếu plan đang được chọn bị xóa
+      }
+      setDeletingPlan(null); // Đóng modal
+    } catch (err) {
+      setError({ message: err?.response?.data?.message || "Xóa kế hoạch thất bại." });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
   // Removed quick-create handler per request
 
   return (
@@ -135,7 +213,7 @@ export default function PlanPicker() {
           {loading ? (
             <div className="text-sm text-gray-600">Đang tải danh sách plan...</div>
           ) : items.length === 0 ? (
-            <div className="text-sm text-gray-500">Chưa có plan nào. Hãy tạo nhanh bên dưới.</div>
+            <div className="text-sm text-gray-500">Bạn chưa có kế hoạch nào.</div>
           ) : (
             <div className="space-y-4">
               {/* Chưa hoàn thành */}
@@ -160,13 +238,22 @@ export default function PlanPicker() {
                           <div className="text-xs text-gray-500">Độ khó: {p.difficulty_level}</div>
                         )}
                       </div>
-                      <button
-                        type="button"
-                        className="px-3 py-1.5 text-xs text-blue-600 border border-blue-200 rounded hover:bg-blue-50 shrink-0"
-                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigate(`/plans/${p.plan_id}`); }}
-                      >
-                        Xem kế hoạch
-                      </button>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          type="button"
+                          className="px-3 py-1.5 text-xs text-blue-600 border border-blue-200 rounded hover:bg-blue-50"
+                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigate(`/plans/${p.plan_id}`); }}
+                        >
+                          Xem
+                        </button>
+                        <button
+                          type="button"
+                          className="px-3 py-1.5 text-xs text-red-600 border border-red-200 rounded hover:bg-red-50"
+                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); setDeletingPlan(p); }}
+                        >
+                          Xóa
+                        </button>
+                      </div>
                     </label>
                   ))}
                 </div>
@@ -198,13 +285,22 @@ export default function PlanPicker() {
                           )}
                           <div className="mt-1 text-xs text-green-700">Đã từng hoàn thành</div>
                         </div>
-                        <button
-                          type="button"
-                          className="px-3 py-1.5 text-xs text-blue-600 border border-blue-200 rounded hover:bg-blue-50 shrink-0"
-                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigate(`/plans/${p.plan_id}`); }}
-                        >
-                          Xem kế hoạch
-                        </button>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button
+                            type="button"
+                            className="px-3 py-1.5 text-xs text-blue-600 border border-blue-200 rounded hover:bg-blue-50"
+                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigate(`/plans/${p.plan_id}`); }}
+                          >
+                            Xem
+                          </button>
+                          <button
+                            type="button"
+                            className="px-3 py-1.5 text-xs text-red-600 border border-red-200 rounded hover:bg-red-50"
+                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setDeletingPlan(p); }}
+                          >
+                            Xóa
+                          </button>
+                        </div>
                       </label>
                     ))}
                   </div>
@@ -216,7 +312,7 @@ export default function PlanPicker() {
           <div className="flex items-center gap-3 mt-4">
             <button
               type="button"
-              disabled={!selectedPlanId || !exerciseId || saving}
+              disabled={(items.length > 0 && !selectedPlanId) || !exerciseId || saving}
               onClick={handleAddToSelected}
               className="px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-60"
             >
@@ -233,6 +329,20 @@ export default function PlanPicker() {
         </div>
 
         {/* Quick create removed as requested */}
+        {showNoPlansModal && (
+          <NoPlansModal
+            onClose={() => setShowNoPlansModal(false)}
+            onCreatePlan={() => navigate(`/plans/new?exerciseId=${exerciseId}`)}
+          />
+        )}
+        {deletingPlan && (
+          <DeleteConfirmationModal
+            planName={deletingPlan.name}
+            onConfirm={() => handleDelete(deletingPlan.plan_id)}
+            onCancel={() => setDeletingPlan(null)}
+            isDeleting={isDeleting}
+          />
+        )}
       </div>
     </div>
   );

@@ -8,8 +8,9 @@ import {
   isTokenExpired,
 } from "./tokenManager.js";
 import {exp} from "@tensorflow/tfjs";
+import { env } from "../config/env.js";
 
-const BASE_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3001";
+const BASE_URL = env.backendUrl;
 
 // Quan trọng: withCredentials để FE nhận cookie (Google OAuth)
 export const api = axios.create({
@@ -28,10 +29,14 @@ export const endpoints = {
     checkEmail: "/api/auth/check-email",
     checkPhone: "/api/auth/check-phone",
     forgot: "/api/auth/forgot-password",
+    googleOtpVerify: "/api/auth/google/otp/verify",
+    googleOtpResend: "/api/auth/google/otp/resend",
     updatePersonalInfo: "/api/auth/personal-info",
     avatar: "/api/auth/avatar",
     logoutSession: "/api/auth/logout-session",
     changePassword: "/api/auth/change-password",
+    streak: "/api/auth/streak",
+    streakPing: "/api/auth/streak/ping",
     // loginHistory removed
   },
 
@@ -41,7 +46,10 @@ export const endpoints = {
     byId: (id) => `/api/plans/${id}`,
     items: (id) => `/api/plans/${id}/exercises`,
     reorder: (id) => `/api/plans/${id}/exercises/reorder`,
-    updateExercise: (planId, planExerciseId) => `/api/plans/${planId}/exercises/${planExerciseId}`,
+    updateExercise: (planId, planExerciseId) =>
+      `/api/plans/${planId}/exercises/${planExerciseId}`,
+    deleteExercise: (planId, planExerciseId) =>
+      `/api/plans/${planId}/exercises/${planExerciseId}`,
   },
 
   // OAuth session-based (Passport)
@@ -70,12 +78,35 @@ export const endpoints = {
 
   payment: {
     createLink: "/api/payment/create-link",
+    verify: "/api/payment/verify",
     return: "/api/payment/return",
     cancel: "/api/payment/cancel",
+    mockUpgrade: "/api/payment/mock-upgrade",
+    myPurchases: "/api/payment/my-purchases",
+  },
+
+  support: {
+    report: "/api/support/report",
+    adminReports: "/api/support/reports",
+    adminReportById: (id) => `/api/support/reports/${id}`,
+    adminRespond: (id) => `/api/support/reports/${id}/respond`,
+  },
+
+  notifications: {
+    list: "/api/notifications",
+    markRead: (id) => `/api/notifications/${id}/read`,
+    markAll: "/api/notifications/read-all",
+  },
+
+  // AI endpoints (proxied via backend, also available on separate AI port)
+  ai: {
+    health: "/api/ai/health",
+    chat: "/api/ai/chat",
   },
 
   admin: {
     users: "/api/admin/users",
+    usersStats: "/api/admin/users/stats",
     userRole: (id) => `/api/admin/users/${id}/role`,
     userPlan: (id) => `/api/admin/users/${id}/plan`,
     userLock: (id) => `/api/admin/users/${id}/lock`,
@@ -85,18 +116,22 @@ export const endpoints = {
     plans: {
       list: "/api/admin/user-plans",
       byId: (id) => `/api/admin/user-plans/${id}`,
-      updateStatus: (id) => `/api/admin/user-plans/${id}/status`
+      updateStatus: (id) => `/api/admin/user-plans/${id}/status`,
     },
     userPlans: (userId) => `/api/admin/users/${userId}/plans`,
-    userPlanDetail: (userId, planId) => `/api/admin/users/${userId}/plans/${planId}`,
-    // ⬇️ NEW: sub-admin endpoints
+    userPlanDetail: (userId, planId) =>
+      `/api/admin/users/${userId}/plans/${planId}`,
+
     listSubAdmins: "/api/admin/subadmins",
     createSubAdmin: "/api/admin/subadmins",
+    metrics: {
+      overview: "/api/admin/metrics/overview",
+      contentOverview: "/api/admin/metrics/content-overview",
+    },
   },
 };
 
 // Những endpoint đi “thẳng” (không ép refresh/redirect)
-// ✅ Bổ sung đầy đủ /api/auth/* để tránh redirect khi đang ở màn login / refresh fail
 const PASS_THROUGH = [
   // API auth
   endpoints.auth.me,
@@ -154,9 +189,13 @@ api.interceptors.request.use(
             const response = await axios.post(
               `${BASE_URL}${endpoints.auth.refresh}`,
               { refreshToken },
-              { headers: { "Content-Type": "application/json" }, withCredentials: true }
+              {
+                headers: { "Content-Type": "application/json" },
+                withCredentials: true,
+              }
             );
-            const { token: newAccessToken, refreshToken: newRefreshToken } = response.data.data;
+            const { token: newAccessToken, refreshToken: newRefreshToken } =
+              response.data.data;
 
             setTokens(newAccessToken, newRefreshToken, true);
             config.headers.Authorization = `Bearer ${newAccessToken}`;
@@ -210,7 +249,10 @@ api.interceptors.response.use(
     const status = error?.response?.status;
 
     // Nếu là pass-through (đặc biệt /api/auth/login, /api/auth/refresh), đừng redirect — để UI tự xử lý
-    if ((status === 401 || status === 423 || status === 403) && isPassThroughUrl(url)) {
+    if (
+      (status === 401 || status === 423 || status === 403) &&
+      isPassThroughUrl(url)
+    ) {
       return Promise.reject(error);
     }
 
@@ -244,9 +286,13 @@ api.interceptors.response.use(
           const response = await axios.post(
             `${BASE_URL}${endpoints.auth.refresh}`,
             { refreshToken },
-            { headers: { "Content-Type": "application/json" }, withCredentials: true }
+            {
+              headers: { "Content-Type": "application/json" },
+              withCredentials: true,
+            }
           );
-          const { token: newAccessToken, refreshToken: newRefreshToken } = response.data.data;
+          const { token: newAccessToken, refreshToken: newRefreshToken } =
+            response.data.data;
 
           setTokens(newAccessToken, newRefreshToken, true);
           processQueue(null, newAccessToken);
@@ -277,17 +323,23 @@ api.interceptors.response.use(
 
 // ===== Convenience APIs =====
 export const checkUsernameAvailability = async (username) => {
-  const response = await api.get(endpoints.auth.checkUsername, { params: { username } });
+  const response = await api.get(endpoints.auth.checkUsername, {
+    params: { username },
+  });
   return response.data;
 };
 
 export const checkEmailAvailability = async (email) => {
-  const response = await api.get(endpoints.auth.checkEmail, { params: { email } });
+  const response = await api.get(endpoints.auth.checkEmail, {
+    params: { email },
+  });
   return response.data;
 };
 
 export const checkPhoneAvailability = async (phone) => {
-  const response = await api.get(endpoints.auth.checkPhone, { params: { phone } });
+  const response = await api.get(endpoints.auth.checkPhone, {
+    params: { phone },
+  });
   return response.data;
 };
 
@@ -314,6 +366,22 @@ export const getAdminUsers = async ({
   if (plan && plan !== "ALL") params.plan = String(plan).toUpperCase();
   if (role && role !== "ALL") params.role = String(role).toUpperCase();
   const res = await api.get(endpoints.admin.users, { params });
+  return res.data;
+};
+
+export const getAdminUsersStats = async () => {
+  const res = await api.get(endpoints.admin.usersStats);
+  return res.data;
+};
+
+// ===== Admin Dashboard Metrics =====
+export const getAdminOverviewMetrics = async () => {
+  const res = await api.get(endpoints.admin.metrics.overview);
+  return res.data;
+};
+
+export const getContentOverviewMetrics = async () => {
+  const res = await api.get(endpoints.admin.metrics.contentOverview);
   return res.data;
 };
 
@@ -366,6 +434,17 @@ export const getMyPlansApi = async ({ limit = 50, offset = 0 } = {}) => {
   return res.data; // expect { success, data: { items, total } } or similar
 };
 
+export const updatePlanApi = async (planId, data) => {
+  const res = await api.put(endpoints.plans.byId(planId), data);
+  return res.data;
+};
+
+export const deletePlanApi = async (planId) => {
+  // Đảm bảo hàm này trỏ đến endpoint đúng của người dùng
+  const res = await api.delete(endpoints.plans.byId(planId));
+  return res.data;
+};
+
 
 // ===== Admin: popular exercises =====
 export const getAdminPopularExercises = async ({ limit = 50, offset = 0, search = "" } = {}) => {
@@ -410,6 +489,85 @@ export const getExerciseFavoriteStatus = async (exerciseId) => {
   return res.data;
 };
 
+// List current user's favorite exercises
+export const getMyFavoriteExercisesApi = async () => {
+  const res = await api.get('/api/exercises/favorites');
+  return res.data;
+};
+
+export const verifyGoogleOtpApi = async (code, otpToken) => {
+  const res = await api.post(endpoints.auth.googleOtpVerify, { code, otpToken });
+  return res.data;
+};
+
+export const resendGoogleOtpApi = async (otpToken) => {
+  const res = await api.post(endpoints.auth.googleOtpResend, { otpToken });
+  return res.data;
+};
+
+export const getLoginStreakSummary = async () => {
+  const res = await api.get(endpoints.auth.streak);
+  return res.data;
+};
+
+export const pingLoginStreak = async () => {
+  const res = await api.post(endpoints.auth.streakPing);
+  return res.data;
+};
+
+// ===== Support APIs =====
+export const submitBugReportApi = async ({
+  title,
+  description,
+  steps,
+  severity,
+  contactEmail,
+  screenshot,
+} = {}) => {
+  const formData = new FormData();
+  if (title) formData.append("title", title);
+  if (description) formData.append("description", description);
+  if (steps) formData.append("steps", steps);
+  if (severity) formData.append("severity", severity);
+  if (contactEmail) formData.append("contactEmail", contactEmail);
+  if (screenshot) formData.append("screenshot", screenshot);
+
+  const res = await api.post(endpoints.support.report, formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  return res.data;
+};
+
+export const adminListBugReportsApi = async (params = {}) => {
+  const res = await api.get(endpoints.support.adminReports, { params });
+  return res.data;
+};
+
+export const adminGetBugReportApi = async (reportId) => {
+  const res = await api.get(endpoints.support.adminReportById(reportId));
+  return res.data;
+};
+
+export const adminRespondBugReportApi = async (reportId, payload) => {
+  const res = await api.patch(endpoints.support.adminRespond(reportId), payload);
+  return res.data;
+};
+
+export const listNotificationsApi = async (params = {}) => {
+  const res = await api.get(endpoints.notifications.list, { params });
+  return res.data;
+};
+
+export const markNotificationReadApi = async (notificationId) => {
+  const res = await api.patch(endpoints.notifications.markRead(notificationId));
+  return res.data;
+};
+
+export const markAllNotificationsReadApi = async () => {
+  const res = await api.patch(endpoints.notifications.markAll);
+  return res.data;
+};
+
 export default api;
 
 
@@ -422,6 +580,11 @@ export const updatePlanExerciseApi = async (planId, planExerciseId, data) => {
     const res = await api.patch(endpoints.plans.updateExercise(planId, planExerciseId), data);
     return res.data;
 }
+
+export const deleteExerciseFromPlanApi = async (planId, planExerciseId) => {
+    const res = await api.delete(endpoints.plans.deleteExercise(planId, planExerciseId));
+    return res.data;
+};
 
 // ===== Workout convenience APIs =====
 export const getActiveWorkoutSessionApi = async () => {
@@ -437,6 +600,16 @@ export const getActiveSubscriptionPlans = async () => {
 
 export const createPaymentLinkApi = async (planId) => {
   const res = await api.post(endpoints.payment.createLink, { planId });
+  return res.data;
+};
+
+export const verifyPaymentStatusApi = async (orderCode) => {
+  const res = await api.post(endpoints.payment.verify, { orderCode });
+  return res.data;
+};
+
+export const listMyPurchasesApi = async () => {
+  const res = await api.get(endpoints.payment.myPurchases);
   return res.data;
 };
 
@@ -470,5 +643,10 @@ export const listWorkoutSessionsApi = async ({ planId, status, limit = 20, offse
   if (planId) params.planId = planId;
   if (status) params.status = status;
   const res = await api.get('/api/workout', { params });
+  return res.data;
+};
+
+export const mockUpgradePremiumApi = async () => {
+  const res = await api.post(endpoints.payment.mockUpgrade);
   return res.data;
 };

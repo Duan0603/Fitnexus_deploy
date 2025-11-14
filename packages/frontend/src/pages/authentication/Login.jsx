@@ -9,6 +9,7 @@ import Alert from "../../components/common/Alert.jsx";
 import api, { endpoints } from "../../lib/api.js";
 import { setTokens } from "../../lib/tokenManager.js";
 import openOAuthPopup from "../../lib/openOAuthPopup.js";
+import { env } from "../../config/env.js";
 
 function OAuthNotFoundModal({ email, onClose, onSignup }) {
   return (
@@ -106,6 +107,13 @@ export default function Login() {
   const location = useLocation();
   useEffect(() => {
     const q = new URLSearchParams(location.search);
+    if (q.get("googleOtp") === "1") {
+      navigate(`/login/otp?${q.toString()}`, { replace: true });
+    }
+  }, [location.search, navigate]);
+
+  useEffect(() => {
+    const q = new URLSearchParams(location.search);
     if (q.get("oauth") === "not_found") {
       setShowNotFound(true);
       setNfEmail(q.get("email") || "");
@@ -119,7 +127,7 @@ export default function Login() {
   // 🔊 Lắng nghe thông điệp trả về từ popup /auth/google/callback
   useEffect(() => {
     function onMessage(e) {
-      const be = import.meta.env.VITE_BACKEND_URL || "http://localhost:3001";
+      const be = env.backendUrl;
       const origin = (() => {
         try {
           return new URL(be).origin;
@@ -201,7 +209,7 @@ export default function Login() {
   // ====== Đăng nhập bằng Google ======
   const handleGoogleLogin = () => {
     setOauthLoading(true);
-    const be = import.meta.env.VITE_BACKEND_URL || "http://localhost:3001";
+    const be = env.backendUrl;
 
     // chuyển sang BE để bắt đầu OAuth, kèm from nếu có (chuỗi path)
     const from = (location.state && typeof location.state.from === 'string') ? location.state.from : "";

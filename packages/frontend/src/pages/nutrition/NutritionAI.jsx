@@ -415,7 +415,7 @@ export default function FoodCalorie() {
 
         {isAuthenticated ? <HeaderLogin /> : <HeaderDemo />}
 
-        <div className="fc-page flex-grow flex flex-col">
+        <div className="flex flex-col flex-grow fc-page">
 
           {/* Hidden global file input */}
 

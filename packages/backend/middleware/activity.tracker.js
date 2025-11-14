@@ -1,6 +1,7 @@
 // packages/backend/middleware/activity.tracker.js
 import User from "../models/user.model.js";
 import jwt from "jsonwebtoken";
+import { ensureActiveSubscription } from "../services/subscription.service.js";
 
 export default async function activityTracker(req, res, next) {
   try {
@@ -15,12 +16,14 @@ export default async function activityTracker(req, res, next) {
 
     // Tìm user (chỉ lấy id và lastActiveAt cho nhanh)
     const user = await User.findByPk(userId, {
-      attributes: ["user_id", "lastActiveAt"],
+      attributes: ["user_id", "lastActiveAt", "plan", "user_type", "user_exp_date"],
     });
     if (!user) return next();
 
     const now = new Date();
     const last = user.lastActiveAt ? new Date(user.lastActiveAt) : null;
+
+    await ensureActiveSubscription(user, { now });
 
     // chỉ update nếu đã qua ít nhất 1 phút kể từ lần cuối
     if (!last || now - last > 60 * 1000) {

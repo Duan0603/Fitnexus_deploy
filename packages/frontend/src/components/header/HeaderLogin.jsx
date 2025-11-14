@@ -5,6 +5,9 @@ import logo from "../../assets/logo.png";
 import logoDark from "../../assets/logodark.png";
 import { useTheme } from "../../context/theme.context.jsx";
 import { Crown } from "lucide-react";
+import { getMyFavoriteExercisesApi } from "../../lib/api.js";
+import NotificationsDropdown from "../common/NotificationsDropdown.jsx";
+import { env } from "../../config/env.js";
 
 export default function HeaderLogin() {
   const navigate = useNavigate();
@@ -15,11 +18,12 @@ export default function HeaderLogin() {
 
   // Derive account type for display: guest | premium | admin
   const accountType = React.useMemo(() => {
-    if (!user) return 'guest';
-    if (String(user.role || '').toUpperCase() === 'ADMIN') return 'admin';
-    const premiumByType = user?.user_type && String(user.user_type).toLowerCase() === 'premium';
-    const premiumByPlan = String(user?.plan || '').toUpperCase() === 'PREMIUM';
-    return (premiumByType || premiumByPlan) ? 'premium' : 'free';
+    if (!user) return "guest";
+    if (String(user.role || "").toUpperCase() === "ADMIN") return "admin";
+    const premiumByType =
+      user?.user_type && String(user.user_type).toLowerCase() === "premium";
+    const premiumByPlan = String(user?.plan || "").toUpperCase() === "PREMIUM";
+    return premiumByType || premiumByPlan ? "premium" : "free";
   }, [user]);
 
   const accountBadgeClass = React.useMemo(() => {
@@ -41,6 +45,13 @@ export default function HeaderLogin() {
 
   const [openCommunity, setOpenCommunity] = useState(false);
   const communityRef = useRef(null);
+
+  // Favorites dropdown state
+  const [openFavorites, setOpenFavorites] = useState(false);
+  const favoritesRef = useRef(null);
+  const [favorites, setFavorites] = useState([]);
+  const [loadingFavorites, setLoadingFavorites] = useState(false);
+  const [favoritesLoaded, setFavoritesLoaded] = useState(false);
 
   const [showAvatarMenu, setShowAvatarMenu] = useState(false);
   const [activeSubmenu, setActiveSubmenu] = useState(null);
@@ -64,12 +75,14 @@ export default function HeaderLogin() {
     return String(letter).toUpperCase();
   };
 
-  const isMailProviderAvatar = (url = "") => /googleusercontent|gravatar|ggpht|gmail|gstatic/i.test(url);
+  const isMailProviderAvatar = (url = "") =>
+    /googleusercontent|gravatar|ggpht|gmail|gstatic/i.test(url);
 
   useEffect(() => {
     setOpenMobile(false);
     setOpenWorkout(false);
     setOpenCommunity(false);
+    setOpenFavorites(false);
     setShowAvatarMenu(false);
     setActiveSubmenu(null);
   }, [location.pathname]);
@@ -78,6 +91,9 @@ export default function HeaderLogin() {
     const onDown = (e) => {
       if (communityRef.current && !communityRef.current.contains(e.target)) {
         setOpenCommunity(false);
+      }
+      if (favoritesRef.current && !favoritesRef.current.contains(e.target)) {
+        setOpenFavorites(false);
       }
       if (avatarMenuRef.current && !avatarMenuRef.current.contains(e.target)) {
         setShowAvatarMenu(false);
@@ -88,6 +104,7 @@ export default function HeaderLogin() {
       if (e.key === "Escape") {
         setOpenMobile(false);
         setOpenWorkout(false);
+        setOpenFavorites(false);
         setShowAvatarMenu(false);
         setActiveSubmenu(null);
       }
@@ -99,6 +116,28 @@ export default function HeaderLogin() {
       document.removeEventListener("keydown", onKey);
     };
   }, []);
+
+  const handleToggleFavorites = async () => {
+    setOpenFavorites((v) => !v);
+    if (!favoritesLoaded && isAuthenticated) {
+      setLoadingFavorites(true);
+      try {
+        const res = await getMyFavoriteExercisesApi();
+        const items = res?.data?.items || [];
+        // Deduplicate defensively by id
+        const uniq = Array.from(
+          new Map(items.map((it) => [it.id, it])).values()
+        );
+        setFavorites(uniq);
+        setFavoritesLoaded(true);
+      } catch (e) {
+        // silent fail in header
+        setFavorites([]);
+      } finally {
+        setLoadingFavorites(false);
+      }
+    }
+  };
 
   useEffect(() => {
     const onDown = (e) => {
@@ -119,6 +158,12 @@ export default function HeaderLogin() {
       document.removeEventListener("keydown", onKey);
     };
   }, []);
+
+  const menuButtonClass =
+    "flex w-full items-center justify-between px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition";
+  const menuLinkClass =
+    "w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 transition";
+  const submenuContainerClass = "px-4 py-2 space-y-1 bg-slate-50 border-t border-slate-100";
 
   return (
     <header className="sticky top-0 z-50 border-b border-gray-200 bg-white/85 backdrop-blur-xl">
@@ -215,6 +260,68 @@ export default function HeaderLogin() {
                 >
                   Tạo plan mới
                 </button>
+
+              </div>
+            )}
+          </div>
+
+          {/* Favorites */}
+          <div className="relative" ref={favoritesRef}>
+            <button
+              onClick={handleToggleFavorites}
+              aria-haspopup="true"
+              aria-expanded={openFavorites}
+              className="inline-flex items-center text-sm text-gray-800 hover:text-blue-600"
+            >
+              Yêu thích
+            </button>
+            {openFavorites && (
+              <div
+                role="menu"
+                aria-label="Bài tập yêu thích"
+                className="absolute right-0 p-2 mt-2 bg-white border border-gray-200 shadow-xl top-full w-80 rounded-xl"
+              >
+                {loadingFavorites ? (
+                  <div className="px-3 py-2 text-sm text-gray-500">
+                    Đang tải...
+                  </div>
+                ) : favorites.length === 0 ? (
+                  <div className="px-3 py-2 text-sm text-gray-500">
+                    Chưa có bài tập yêu thích
+                  </div>
+                ) : (
+                  <ul className="overflow-auto max-h-80">
+                    {favorites.map((ex) => (
+                      <li
+                        key={ex.id}
+                        className="flex items-center px-3 py-2 rounded-lg cursor-pointer hover:bg-gray-50"
+                        onClick={() => {
+                          setOpenFavorites(false);
+                          navigate(`/exercises/${ex.id}`);
+                        }}
+                      >
+                        {ex.imageUrl ? (
+                          <img
+                            src={ex.imageUrl}
+                            alt={ex.name}
+                            className="object-cover w-10 h-10 mr-3 rounded"
+                          />
+                        ) : (
+                          <div className="w-10 h-10 mr-3 bg-gray-200 rounded" />
+                        )}
+                        <div className="min-w-0">
+                          <div className="text-sm font-medium text-gray-900 truncate">
+                            {ex.name}
+                          </div>
+                          <div className="text-xs text-gray-500 truncate">
+                            {ex.equipment || "Bodyweight"} •{" "}
+                            {ex.difficulty || "N/A"}
+                          </div>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             )}
           </div>
@@ -231,59 +338,6 @@ export default function HeaderLogin() {
           >
             Dinh dưỡng
           </button>
-
-          <div className="relative" ref={communityRef}>
-            <button
-              onClick={() => setOpenCommunity((v) => !v)}
-              aria-haspopup="true"
-              aria-expanded={openCommunity}
-              className="inline-flex items-center text-sm text-gray-800 hover:text-blue-600"
-            >
-              Cộng đồng
-              <svg
-                className="w-4 h-4 ml-1"
-                viewBox="0 0 20 20"
-                fill="currentColor"
-              >
-                <path d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" />
-              </svg>
-            </button>
-
-            {openCommunity && (
-              <div
-                role="menu"
-                aria-label="Menu luyện tập"
-                className="absolute left-0 p-2 mt-2 bg-white border border-gray-200 shadow-xl top-full w-72 rounded-xl"
-              >
-                <button
-                  role="menuitem"
-                  onClick={() => navigate("/community-demo")}
-                  className="w-full px-3 py-2 text-left rounded-lg hover:bg-gray-50"
-                >
-                  <div className="text-sm font-semibold text-gray-900">
-                    Gym Group
-                  </div>
-                  <div className="text-xs text-gray-500">
-                    Cộng đồng GYM với hàng nghìn thành viên tay to
-                  </div>
-                </button>
-
-                <div className="h-px my-2 bg-gray-200" />
-
-                <button
-                  role="menuitem"
-                  onClick={() =>
-                    !isAuthenticated
-                      ? navigate("/login", { state: { from: "/trainer-demo" } })
-                      : navigate("/trainer-demo")
-                  }
-                  className="inline-flex items-center text-sm text-gray-800 hover:text-blue-600"
-                >
-                  Fitness Trainer
-                </button>
-              </div>
-            )}
-          </div>
         </nav>
 
         <div className="items-center hidden gap-3 md:flex">
@@ -296,6 +350,9 @@ export default function HeaderLogin() {
             {accountType}
           </span>
           <div className="flex items-center gap-4">
+            {isAuthenticated && (
+              <NotificationsDropdown buttonClassName="border-gray-200" />
+            )}
             {user ? (
               <div className="relative" ref={avatarMenuRef}>
                 <button
@@ -303,9 +360,7 @@ export default function HeaderLogin() {
                   className="flex text-sm rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                 >
                   {(() => {
-                    const be =
-                      import.meta.env.VITE_BACKEND_URL ||
-                      "http://localhost:3001";
+                    const be = env.backendUrl;
                     const raw = user?.avatarUrl || "";
                     let src = null;
                     if (raw) {
@@ -341,204 +396,184 @@ export default function HeaderLogin() {
                   })()}
                 </button>
                 {showAvatarMenu && (
-                  <div className="absolute right-0 z-50 w-64 mt-2 bg-white rounded-md shadow-lg ring-1 ring-black ring-opacity-5">
-                    {/* Tài khoản */}
-                    {false && (
-                      <button
-                        onClick={() => {
-                          setShowAvatarMenu(false);
-                          setActiveSubmenu(null);
-                          navigate("/profile");
-                        }}
-                        className="block w-full px-4 py-2 text-sm text-left text-gray-700 hover:bg-gray-100"
-                      >
-                        Hồ sơ
-                      </button>
-                    )}
-                    {/* Account, Profile, Support submenus */}
-                    <div className="relative">
-                      <button
-                        onClick={() =>
-                          setActiveSubmenu(
-                            activeSubmenu === "account" ? null : "account"
-                          )
-                        }
-                        className="flex items-center justify-between w-full px-4 py-2 text-sm text-left text-gray-700 hover:bg-gray-100"
-                      >
-                        <span>Tài khoản</span>
-                        <svg
-                          className={`w-4 h-4 transition-transform ${
-                            activeSubmenu === "account" ? "rotate-180" : ""
-                          }`}
-                          fill="currentColor"
-                          viewBox="0 0 20 20"
+                  <div className="absolute right-0 z-50 w-64 mt-2 overflow-hidden bg-white shadow-2xl rounded-xl ring-1 ring-black/5">
+                    <div className="flex flex-col divide-y divide-slate-100">
+                      <div className="py-1">
+                        <button
+                          onClick={() =>
+                            setActiveSubmenu(
+                              activeSubmenu === "account" ? null : "account"
+                            )
+                          }
+                          className={menuButtonClass}
                         >
-                          <path
-                            fillRule="evenodd"
-                            d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-                            clipRule="evenodd"
-                          />
-                        </svg>
-                      </button>
-                      {activeSubmenu === "account" && (
-                        <div className="absolute top-0 w-48 ml-1 bg-white border border-gray-200 rounded-md shadow-lg left-full">
-                          <button
-                            onClick={() => {
-                              setShowAvatarMenu(false);
-                              setActiveSubmenu(null);
-                              navigate("/account/personal-info");
-                            }}
-                            className="block w-full px-4 py-2 text-sm text-left text-gray-700 hover:bg-gray-100"
+                          <span>Tài khoản</span>
+                          <svg
+                            className={`w-4 h-4 transition-transform ${
+                              activeSubmenu === "account" ? "rotate-180" : ""
+                            }`}
+                            fill="currentColor"
+                            viewBox="0 0 20 20"
                           >
-                            Thông tin cá nhân
-                          </button>
-                          <button
-                            onClick={() => {
-                              setShowAvatarMenu(false);
-                              setActiveSubmenu(null);
-                              navigate("/account/change-password");
-                            }}
-                            className="block w-full px-4 py-2 text-sm text-left text-gray-700 hover:bg-gray-100"
-                          >
-                            Đổi mật khẩu
-                          </button>
-                        </div>
-                      )}
-                    </div>
+                            <path
+                              fillRule="evenodd"
+                              d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+                              clipRule="evenodd"
+                            />
+                          </svg>
+                        </button>
+                        {activeSubmenu === "account" && (
+                          <div className={submenuContainerClass}>
+                            <button
+                              onClick={() => {
+                                setShowAvatarMenu(false);
+                                setActiveSubmenu(null);
+                                navigate("/account/personal-info");
+                              }}
+                              className={menuLinkClass}
+                            >
+                              Thông tin cá nhân
+                            </button>
+                            <button
+                              onClick={() => {
+                                setShowAvatarMenu(false);
+                                setActiveSubmenu(null);
+                                navigate("/account/change-password");
+                              }}
+                              className={menuLinkClass}
+                            >
+                              Đổi mật khẩu
+                            </button>
+                          </div>
+                        )}
+                      </div>
 
-                    {/* Hồ sơ */}
-                    <div className="relative">
-                      <button
-                        onClick={() =>
-                          setActiveSubmenu(
-                            activeSubmenu === "profile" ? null : "profile"
-                          )
-                        }
-                        className="flex items-center justify-between w-full px-4 py-2 text-sm text-left text-gray-700 hover:bg-gray-100"
-                      >
-                        <span>Hồ sơ</span>
-                        <svg
-                          className={`w-4 h-4 transition-transform ${
-                            activeSubmenu === "profile" ? "rotate-180" : ""
-                          }`}
-                          fill="currentColor"
-                          viewBox="0 0 20 20"
+                      <div className="py-1">
+                        <button
+                          onClick={() =>
+                            setActiveSubmenu(
+                              activeSubmenu === "profile" ? null : "profile"
+                            )
+                          }
+                          className={menuButtonClass}
                         >
-                          <path
-                            fillRule="evenodd"
-                            d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-                            clipRule="evenodd"
-                          />
-                        </svg>
-                      </button>
-                      {activeSubmenu === "profile" && (
-                        <div className="absolute top-0 w-48 ml-1 bg-white border border-gray-200 rounded-md shadow-lg left-full">
-                          <button
-                            onClick={() => {
-                              setShowAvatarMenu(false);
-                              setActiveSubmenu(null);
-                              navigate("/profile/avatar");
-                            }}
-                            className="block w-full px-4 py-2 text-sm text-left text-gray-700 hover:bg-gray-100"
+                          <span>Hồ sơ</span>
+                          <svg
+                            className={`w-4 h-4 transition-transform ${
+                              activeSubmenu === "profile" ? "rotate-180" : ""
+                            }`}
+                            fill="currentColor"
+                            viewBox="0 0 20 20"
                           >
-                            Ảnh đại diện
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                    <button
-                      onClick={() => {
-                        setShowAvatarMenu(false);
-                        setActiveSubmenu(null);
-                        navigate("/support");
-                      }}
-                      className="w-full px-4 py-2 text-sm text-left text-gray-700 hover:bg-gray-100"
-                    >
-                      Hỗ trợ
-                    </button>
+                            <path
+                              fillRule="evenodd"
+                              d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+                              clipRule="evenodd"
+                            />
+                          </svg>
+                        </button>
+                        {activeSubmenu === "profile" && (
+                          <div className={submenuContainerClass}>
+                            <button
+                              onClick={() => {
+                                setShowAvatarMenu(false);
+                                setActiveSubmenu(null);
+                                navigate("/profile/avatar");
+                              }}
+                              className={menuLinkClass}
+                            >
+                              Ảnh đại diện
+                            </button>
+                          </div>
+                        )}
+                      </div>
 
-                    {/* Cài đặt */}
-                    <div className="relative">
-                      <button
-                        onClick={() =>
-                          setActiveSubmenu(
-                            activeSubmenu === "settings" ? null : "settings"
-                          )
-                        }
-                        className="flex items-center justify-between w-full px-4 py-2 text-sm text-left text-gray-700 hover:bg-gray-100"
-                      >
-                        <span>Cài đặt</span>
-                        <svg
-                          className={`w-4 h-4 transition-transform ${
-                            activeSubmenu === "settings" ? "rotate-180" : ""
-                          }`}
-                          fill="currentColor"
-                          viewBox="0 0 20 20"
+                      <div className="py-1">
+                        <button
+                          onClick={() => {
+                            setShowAvatarMenu(false);
+                            setActiveSubmenu(null);
+                            navigate("/support");
+                          }}
+                          className={menuLinkClass}
                         >
-                          <path
-                            fillRule="evenodd"
-                            d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-                            clipRule="evenodd"
-                          />
-                        </svg>
-                      </button>
-                      {activeSubmenu === "settings" && (
-                        <div className="absolute top-0 w-48 ml-1 bg-white border border-gray-200 rounded-md shadow-lg left-full">
-                          <button
-                            onClick={() => {
-                              setShowAvatarMenu(false);
-                              setActiveSubmenu(null);
-                              navigate("/settings/notifications");
-                            }}
-                            className="block w-full px-4 py-2 text-sm text-left text-gray-700 hover:bg-gray-100"
-                          >
-                            Thông báo
-                          </button>
-                          <button
-                            onClick={() => {
-                              setShowAvatarMenu(false);
-                              setActiveSubmenu(null);
-                              navigate("/settings/language");
-                            }}
-                            className="block w-full px-4 py-2 text-sm text-left text-gray-700 hover:bg-gray-100"
-                          >
-                            Ngôn ngữ
-                          </button>
-                          <button
-                            onClick={() => {
-                              setShowAvatarMenu(false);
-                              setActiveSubmenu(null);
-                              navigate("/settings/theme");
-                            }}
-                            className="block w-full px-4 py-2 text-sm text-left text-gray-700 hover:bg-gray-100"
-                          >
-                            Chế độ tối
-                          </button>
-                          <button
-                            onClick={() => {
-                              setShowAvatarMenu(false);
-                              setActiveSubmenu(null);
-                              navigate("/settings/privacy");
-                            }}
-                            className="block w-full px-4 py-2 text-sm text-left text-gray-700 hover:bg-gray-100"
-                          >
-                            Quyền riêng tư
-                          </button>
-                        </div>
-                      )}
-                    </div>
+                          Hỗ trợ
+                        </button>
+                        <button
+                          onClick={() => {
+                            setShowAvatarMenu(false);
+                            setActiveSubmenu(null);
+                            navigate("/pricing");
+                          }}
+                          className={menuLinkClass}
+                        >
+                          Nâng cấp Premium
+                        </button>
+                      </div>
 
-                    <div className="border-t border-gray-200"></div>
-                    <button
-                      onClick={() => {
-                        setShowAvatarMenu(false);
-                        setActiveSubmenu(null);
-                        handleLogout();
-                      }}
-                      className="block w-full px-4 py-2 text-sm text-left text-red-600 hover:bg-gray-100"
-                    >
-                      Đăng xuất
-                    </button>
+                      <div className="py-1">
+                        <button
+                          onClick={() =>
+                            setActiveSubmenu(
+                              activeSubmenu === "settings" ? null : "settings"
+                            )
+                          }
+                          className={menuButtonClass}
+                        >
+                          <span>Cài đặt</span>
+                          <svg
+                            className={`w-4 h-4 transition-transform ${
+                              activeSubmenu === "settings" ? "rotate-180" : ""
+                            }`}
+                            fill="currentColor"
+                            viewBox="0 0 20 20"
+                          >
+                            <path
+                              fillRule="evenodd"
+                              d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+                              clipRule="evenodd"
+                            />
+                          </svg>
+                        </button>
+                        {activeSubmenu === "settings" && (
+                          <div className={submenuContainerClass}>
+                            <button
+                              onClick={() => {
+                                setShowAvatarMenu(false);
+                                setActiveSubmenu(null);
+                                navigate("/settings/notifications");
+                              }}
+                              className={menuLinkClass}
+                            >
+                              Thông báo
+                            </button>
+                            <button
+                              onClick={() => {
+                                setShowAvatarMenu(false);
+                                setActiveSubmenu(null);
+                                navigate("/settings/theme");
+                              }}
+                              className={menuLinkClass}
+                            >
+                              Chế độ tối
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="py-1">
+                        <button
+                          onClick={() => {
+                            setShowAvatarMenu(false);
+                            setActiveSubmenu(null);
+                            handleLogout();
+                          }}
+                          className="w-full px-4 py-2 text-sm font-semibold text-left text-red-600 hover:bg-red-50"
+                        >
+                          Đăng xuất
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
@@ -624,6 +659,16 @@ export default function HeaderLogin() {
                 >
                   Tạo plan mới
                 </button>
+                <button
+                  className="block w-full px-3 py-2 text-left rounded-md hover:bg-gray-50"
+                  onClick={() =>
+                    !isAuthenticated
+                      ? navigate("/login", { state: { from: "/plans/manage" } })
+                      : navigate("/plans/manage")
+                  }
+                >
+                  Quản lý kế hoạch
+                </button>
               </div>
             </details>
 
@@ -662,7 +707,7 @@ export default function HeaderLogin() {
             )}
 
             <a
-              href="https://example.com/download-app"
+              href={env.appDownloadUrl}
               target="_blank"
               rel="noreferrer"
               className="block w-full py-2 font-semibold text-left text-blue-600"

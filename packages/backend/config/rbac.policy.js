@@ -29,6 +29,7 @@ const permissions = {
   ADMIN: [
     'read:admin_dashboard',
     'manage:users', // (Bao gồm khóa/mở, đổi role)
+    'manage:support',
   ],
   // Quyền cao nhất
   SUPER_ADMIN: ['*'], // Ký tự đại diện cho "tất cả"

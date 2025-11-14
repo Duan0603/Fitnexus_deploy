@@ -9,6 +9,7 @@ import { fileURLToPath } from "url";
 import authOrSession from "../middleware/authOrSession.guard.js";
 import permissionGuard from "../middleware/permission.guard.js";
 import aiQuota from "../middleware/ai.quota.js";
+import { AI_API_URL } from "../config/env.js";
 const router = Router();
 // Resolve a stable uploads directory next to backend root
 const __filename = fileURLToPath(import.meta.url);
@@ -29,8 +30,6 @@ const upload = multer({
   },
 });
 // AI service endpoint (Python FastAPI)
-const AI_API_URL =
-  process.env.AI_API_URL || "http://127.0.0.1:8000/analyze-image/";
 // Health/feature probe for trainers
 router.get("/tools", authOrSession, permissionGuard('manage:clients'), (_req, res) => {
   res.json({

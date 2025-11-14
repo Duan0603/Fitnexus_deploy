@@ -11,6 +11,7 @@ import {
   getFavoriteStatus,
   getRelatedExercisesById,
   getExerciseMusclesById,
+  listMyFavorites,
 } from "../controllers/exercise.controller.js";
 
 const router = Router();
@@ -28,7 +29,9 @@ router.get("/slug/:slug/steps", getExerciseStepsBySlug);
 // GET: kiểm tra trạng thái yêu thích của user hiện tại
 router.post("/:exerciseId/favorite", authGuard, postFavorite);
 router.delete("/:exerciseId/favorite", authGuard, deleteFavorite);
-router.get("/:exerciseId/favorite", authGuard, getFavoriteStatus);
+// GET favorite status does not require auth; supports JWT or Passport session if available
+router.get("/:exerciseId/favorite", getFavoriteStatus);
+router.get("/favorites", authGuard, listMyFavorites);
 
 /* -------------------- Related & Muscles -------------------- */
 // Lấy danh sách bài tập liên quan

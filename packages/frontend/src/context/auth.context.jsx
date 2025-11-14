@@ -18,6 +18,10 @@ import { can as rbacCan } from "../config/rbac.policy.js";
 
 const AuthContext = createContext(null);
 
+// Debounce/lock to prevent flooding /auth/me during rapid route changes
+let __refreshingUser = false;
+let __lastRefreshUserAt = 0;
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -90,6 +94,10 @@ export function AuthProvider({ children }) {
 
   // Làm tươi thông tin user (ưu tiên session OAuth, fallback JWT)
   const refreshUser = async () => {
+    const now = Date.now();
+    if (__refreshingUser) return true;
+    if (now - (__lastRefreshUserAt || 0) < 800) return true;
+    __refreshingUser = true;
     try {
       // Prefer JWT if we already have a token
       try {
@@ -134,6 +142,9 @@ export function AuthProvider({ children }) {
       return false;
     } catch {
       return false;
+    } finally {
+      __lastRefreshUserAt = Date.now();
+      __refreshingUser = false;
     }
   };
 

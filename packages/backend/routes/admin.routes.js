@@ -7,6 +7,7 @@ import permissionGuard from '../middleware/permission.guard.js';
 
 import {
   listUsers,
+  getUsersStats,
   updateUserRole,
   updateUserPlan,
   resetPassword,
@@ -49,6 +50,13 @@ router.get(
     }
     return getUserPlanById(req, res, next);
   }
+);
+
+router.get(
+  '/users/stats',
+  authGuard,
+  permissionGuard('manage:users'),
+  (_req, res, next) => getUsersStats(_req, res, next)
 );
 
 router.get('/health', authGuard, permissionGuard('read:admin_dashboard'), (_req, res) => {

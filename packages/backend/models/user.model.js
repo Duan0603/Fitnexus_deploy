@@ -72,6 +72,24 @@ const User = sequelize.define(
       field: "onboarding_completed_at",
     },
 
+    login_streak: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
+      field: "login_streak",
+    },
+    max_login_streak: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
+      field: "max_login_streak",
+    },
+    login_streak_updated_at: {
+      type: DataTypes.DATE,
+      allowNull: true,
+      field: "login_streak_updated_at",
+    },
+
     isLocked: {
       type: DataTypes.BOOLEAN,
       allowNull: false,

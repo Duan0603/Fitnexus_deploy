@@ -217,6 +217,78 @@ export async function listUsers(req, res) {
   }
 }
 
+/**
+ * GET /api/admin/users/stats
+ * Returns totals for filters: role, plan, status (ACTIVE within ACTIVE_WINDOW_MS)
+ */
+export async function getUsersStats(req, res) {
+  try {
+    const ACTIVE_WINDOW_MS = Number(process.env.ACTIVE_WINDOW_MS || 5 * 60 * 1000);
+    const dialect = typeof sequelize?.getDialect === 'function' ? sequelize.getDialect() : 'postgres';
+
+    if (dialect === 'postgres') {
+      const activeMinutes = Math.max(1, Math.floor(ACTIVE_WINDOW_MS / (60 * 1000)));
+      const [rows] = await sequelize.query(
+        `SELECT
+            COUNT(*) AS total,
+            COUNT(*) FILTER (WHERE role = 'ADMIN')   AS admin_count,
+            COUNT(*) FILTER (WHERE role = 'TRAINER') AS trainer_count,
+            COUNT(*) FILTER (WHERE role = 'USER')    AS user_count,
+            COUNT(*) FILTER (WHERE plan = 'PREMIUM') AS premium_count,
+            COUNT(*) FILTER (WHERE plan = 'FREE')    AS free_count,
+            COUNT(*) FILTER (
+              WHERE last_active_at IS NOT NULL AND last_active_at >= NOW() - INTERVAL '${activeMinutes} minutes'
+            ) AS active_count
+         FROM users`
+      );
+      const r = rows?.[0] || {};
+      const total = Number(r.total || 0);
+      const active = Number(r.active_count || 0);
+      return res.json({
+        success: true,
+        data: {
+          total,
+          role: {
+            ADMIN: Number(r.admin_count || 0),
+            TRAINER: Number(r.trainer_count || 0),
+            USER: Number(r.user_count || 0),
+          },
+          plan: {
+            PREMIUM: Number(r.premium_count || 0),
+            FREE: Number(r.free_count || 0),
+          },
+          status: {
+            ACTIVE: active,
+            INACTIVE: Math.max(0, total - active),
+          },
+        },
+      });
+    }
+
+    // Fallback: generic SQL without FILTER (may be less efficient)
+    const [[{ total }]] = await sequelize.query(`SELECT COUNT(*)::int AS total FROM users`);
+    const [[{ admin }]] = await sequelize.query(`SELECT COUNT(*)::int AS admin FROM users WHERE role = 'ADMIN'`);
+    const [[{ trainer }]] = await sequelize.query(`SELECT COUNT(*)::int AS trainer FROM users WHERE role = 'TRAINER'`);
+    const [[{ simple_user }]] = await sequelize.query(`SELECT COUNT(*)::int AS simple_user FROM users WHERE role = 'USER'`);
+    const [[{ premium }]] = await sequelize.query(`SELECT COUNT(*)::int AS premium FROM users WHERE plan = 'PREMIUM'`);
+    const [[{ free }]] = await sequelize.query(`SELECT COUNT(*)::int AS free FROM users WHERE plan = 'FREE'`);
+    const minutes = Math.max(1, Math.floor(ACTIVE_WINDOW_MS / (60 * 1000)));
+    const [[{ active }]] = await sequelize.query(`SELECT COUNT(*)::int AS active FROM users WHERE last_active_at IS NOT NULL AND last_active_at >= datetime('now', '-${minutes} minutes')`);
+    return res.json({
+      success: true,
+      data: {
+        total: Number(total || 0),
+        role: { ADMIN: Number(admin||0), TRAINER: Number(trainer||0), USER: Number(simple_user||0) },
+        plan: { PREMIUM: Number(premium||0), FREE: Number(free||0) },
+        status: { ACTIVE: Number(active||0), INACTIVE: Math.max(0, Number(total||0) - Number(active||0)) },
+      },
+    });
+  } catch (err) {
+    console.error('Admin getUsersStats error:', err);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+}
+
 
 /**
  * GET /api/admin/popular-exercises
@@ -367,6 +439,23 @@ export async function updateUserPlan(req, res) {
     }
 
     await user.save({ fields: fieldsToUpdate });
+
+    // Send email when upgraded to PREMIUM
+    if (user.plan === 'PREMIUM' && user.email) {
+      try {
+        const expStr = user.user_exp_date ? new Date(user.user_exp_date).toLocaleDateString() : '';
+        await sendMail({
+          to: user.email,
+          subject: 'Tài khoản đã được nâng cấp Premium',
+          html: `<p>Xin chào ${user.fullName || user.username || 'bạn'},</p>
+                 <p>Tài khoản của bạn đã được nâng cấp lên <b>Premium</b>${expStr ? ` tới ngày <b>${expStr}</b>` : ''}.</p>
+                 <p>Cảm ơn bạn đã ủng hộ FitNexus!</p>`,
+          text: `Tai khoan cua ban da duoc nang cap Premium${expStr ? ` toi ngay ${expStr}` : ''}. Cam on ban da ung ho FitNexus!`,
+        });
+      } catch (e) {
+        console.warn('send premium mail (admin.updateUserPlan) error:', e?.message);
+      }
+    }
 
     return res.json({
       success: true,

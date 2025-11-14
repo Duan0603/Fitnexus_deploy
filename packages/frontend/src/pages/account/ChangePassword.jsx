@@ -1,9 +1,11 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import HeaderLogin from "../../components/header/HeaderLogin.jsx";
 import Alert from "../../components/common/Alert.jsx";
 import { api, endpoints } from "../../lib/api.js";
 
 export default function ChangePassword() {
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     currentPassword: "",
     newPassword: "",
@@ -170,6 +172,7 @@ export default function ChangePassword() {
                 type="button"
                 className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
                 disabled={isLoading}
+                onClick={() => navigate('/dashboard', { replace: true })}
               >
                 Hủy
               </button>

@@ -15,6 +15,7 @@ import { validatePhone } from '../../lib/phoneValidation.js';
 import { validateEmail } from '../../lib/emailValidation.js';
 import { useAvailabilityCheck } from '../../hooks/useAvailabilityCheck.js';
 import logo from '../../assets/branch/logo.png';
+import { env } from "../../config/env.js";
 //import { openOAuthPopup } from "../lib/openOAuthPopup.js";
 
 export default function Register() {
@@ -131,7 +132,7 @@ export default function Register() {
   // ===== Đăng ký/đăng nhập bằng Google (popup, không reload) =====
  const handleGoogleRegister = (e) => {
     e.preventDefault();
-    const be = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+    const be = env.backendUrl;
     window.location.href = `${be}/auth/google`;
   };
 

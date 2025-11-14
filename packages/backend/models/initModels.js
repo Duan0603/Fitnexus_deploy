@@ -18,6 +18,8 @@ import WorkoutSessionSet from "./workout.session.set.model.js";
 import AIUsage from "./ai.usage.model.js";
 import SubscriptionPlan from "./subscription.plan.model.js";
 import Transaction from "./transaction.model.js";
+import BugReport from "./bugReport.model.js";
+import Notification from "./notification.model.js";
 
 // ✅ Giữ 1 biến toàn cục
 let initialized = false;
@@ -86,11 +88,17 @@ export function initModels() {
   ExerciseFavorite.belongsTo(Exercise, { foreignKey: "exercise_id", targetKey: "exercise_id", as: "exerciseFav" });
 
   /* -------------------- WORKOUT PLAN -------------------- */
-  WorkoutPlan.hasMany(PlanExerciseDetail, { foreignKey: "plan_id", sourceKey: "plan_id", as: "planItems" });
+  // Creator relation for admin views and listing
+  User.hasMany(WorkoutPlan, { foreignKey: "creator_id", sourceKey: "user_id", as: "plans" });
+  WorkoutPlan.belongsTo(User, { foreignKey: "creator_id", targetKey: "user_id", as: "creator" });
+
+  // WorkoutPlan ↔ PlanExerciseDetail
+  // Align aliases with controllers: WorkoutPlan.include as 'items', and PlanExerciseDetail.include Exercise as 'exercise'
+  WorkoutPlan.hasMany(PlanExerciseDetail, { foreignKey: "plan_id", sourceKey: "plan_id", as: "items" });
   PlanExerciseDetail.belongsTo(WorkoutPlan, { foreignKey: "plan_id", targetKey: "plan_id", as: "plan" });
 
   Exercise.hasMany(PlanExerciseDetail, { foreignKey: "exercise_id", sourceKey: "exercise_id", as: "planExercises" });
-  PlanExerciseDetail.belongsTo(Exercise, { foreignKey: "exercise_id", targetKey: "exercise_id", as: "exerciseDetail" });
+  PlanExerciseDetail.belongsTo(Exercise, { foreignKey: "exercise_id", targetKey: "exercise_id", as: "exercise" });
 
   /* -------------------- WORKOUT LOG -------------------- */
   User.hasMany(UserWorkoutLog, { foreignKey: "user_id", sourceKey: "user_id", as: "workoutLogs" });
@@ -107,13 +115,16 @@ export function initModels() {
   WorkoutSession.belongsTo(User, { foreignKey: "user_id", targetKey: "user_id", as: "userSession" });
 
   WorkoutPlan.hasMany(WorkoutSession, { foreignKey: "plan_id", sourceKey: "plan_id", as: "sessions" });
-  WorkoutSession.belongsTo(WorkoutPlan, { foreignKey: "plan_id", targetKey: "plan_id", as: "planSession" });
+  // Align with controllers: include WorkoutPlan as 'plan'
+  WorkoutSession.belongsTo(WorkoutPlan, { foreignKey: "plan_id", targetKey: "plan_id", as: "plan" });
 
   WorkoutSession.hasMany(WorkoutSessionExercise, { foreignKey: "session_id", sourceKey: "session_id", as: "exercises" });
   WorkoutSessionExercise.belongsTo(WorkoutSession, { foreignKey: "session_id", targetKey: "session_id", as: "sessionExercise" });
 
   WorkoutSessionExercise.hasMany(WorkoutSessionSet, { foreignKey: "session_exercise_id", sourceKey: "session_exercise_id", as: "sets" });
   WorkoutSessionSet.belongsTo(WorkoutSessionExercise, { foreignKey: "session_exercise_id", targetKey: "session_exercise_id", as: "exerciseSet" });
+  // Link WSExercise -> Exercise for details in active session
+  WorkoutSessionExercise.belongsTo(Exercise, { foreignKey: "exercise_id", targetKey: "exercise_id", as: "exercise" });
 
   /* -------------------- BILLING -------------------- */
   User.hasMany(Transaction, { foreignKey: "user_id", sourceKey: "user_id", as: "transactions" });
@@ -121,6 +132,14 @@ export function initModels() {
 
   SubscriptionPlan.hasMany(Transaction, { foreignKey: "plan_id", sourceKey: "plan_id", as: "transactions" });
   Transaction.belongsTo(SubscriptionPlan, { foreignKey: "plan_id", targetKey: "plan_id", as: "planTransaction" });
+
+  /* -------------------- SUPPORT -------------------- */
+  User.hasMany(BugReport, { foreignKey: "user_id", sourceKey: "user_id", as: "bugReports" });
+  BugReport.belongsTo(User, { foreignKey: "user_id", targetKey: "user_id", as: "reporter" });
+  BugReport.belongsTo(User, { foreignKey: "responded_by", targetKey: "user_id", as: "responder" });
+
+  User.hasMany(Notification, { foreignKey: "user_id", sourceKey: "user_id", as: "notifications" });
+  Notification.belongsTo(User, { foreignKey: "user_id", targetKey: "user_id", as: "owner" });
 
   models = {
     User,
@@ -143,6 +162,8 @@ export function initModels() {
     AIUsage,
     SubscriptionPlan,
     Transaction,
+    BugReport,
+    Notification,
   };
 
   initialized = true;

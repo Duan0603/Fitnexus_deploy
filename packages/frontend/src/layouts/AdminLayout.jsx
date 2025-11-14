@@ -14,15 +14,20 @@ import {
   Dumbbell,
   Wallet,
   MessageSquare,
+  LifeBuoy,
   Star,
   Bell,
   Search,
   Sun,
 } from "lucide-react";
+import NotificationsDropdown from "../components/common/NotificationsDropdown.jsx";
+import { useNotificationsFeed } from "../hooks/useNotificationsFeed.js";
 
 export default function AdminLayout() {
   const location = useLocation();
   const { user, logout } = useAuth();
+  const notificationFeed = useNotificationsFeed({ limit: 8, autoLoad: true });
+  const adminNotifications = notificationFeed.items;
 
   // Query params để highlight submenu
   const currentRole = (new URLSearchParams(location.search).get("role") || "ALL").toUpperCase();
@@ -35,6 +40,7 @@ export default function AdminLayout() {
     trainer: false,
     financial: false,
     social: false,
+    support: true,
   });
 
   // Submenu cho Role và Plan
@@ -58,9 +64,7 @@ export default function AdminLayout() {
         children: [
           { icon: UserRound, label: "All Users", to: "/admin/users" },
           { icon: IdCard, label: "Admin", to: "/admin/user-detail" },
-          { icon: IdCard, label: "Role", to: "/admin/role" }, // trang tách riêng
-          { icon: IdCard, label: "Plan", to: "/admin/plan" }, // trang tách riêng
-          { icon: FolderKanban, label: "Quản lý Plans", to: "/admin/user-plans" },
+                              { icon: FolderKanban, label: "Quản lý Plans", to: "/admin/user-plans" },
           { icon: Unlock, label: "Lock & Unlock", to: "/admin/lock-unlock" },
           { icon: KeyRound, label: "Reset password", to: "/admin/reset-password" },
         ],
@@ -92,6 +96,12 @@ export default function AdminLayout() {
         label: "Social",
         children: [{ label: "Overview", to: "/admin/social" }],
       },
+      {
+        key: "support",
+        icon: LifeBuoy,
+        label: "Support Desk",
+        children: [{ icon: MessageSquare, label: "Báo lỗi người dùng", to: "/admin/support" }],
+      },
     ],
     []
   );
@@ -115,7 +125,7 @@ export default function AdminLayout() {
           </div>
           <div className="flex items-center gap-3 text-gray-600">
             <Sun className="w-4 h-4" />
-            <Bell className="w-4 h-4" />
+            <NotificationsDropdown buttonClassName="border-gray-200" />
             <div className="w-8 h-8 bg-gray-200 rounded-full" />
           </div>
         </div>
@@ -135,9 +145,6 @@ export default function AdminLayout() {
           <nav className="mb-4 space-y-1 text-sm">
             <NavLink to="/admin" end className={linkClass}>
               <Home className="w-4 h-4" /> Overview
-            </NavLink>
-            <NavLink to="/admin/projects" className={linkClass}>
-              <LayoutDashboard className="w-4 h-4" /> Projects
             </NavLink>
           </nav>
 
@@ -160,7 +167,9 @@ export default function AdminLayout() {
                       {sec.label}
                     </span>
                     <ChevronRight
-                      className={`h-4 w-4 transition-transform ${open[sec.key] ? "rotate-90" : ""}`}
+                      className={`h-4 w-4 transition-transform ${
+                        open[sec.key] ? "rotate-90" : ""
+                      }`}
                     />
                   </button>
 
@@ -173,8 +182,14 @@ export default function AdminLayout() {
                         // Các item thường (không có submenu)
                         if (!isRole && !isPlan) {
                           return (
-                            <NavLink key={item.to} to={item.to} className={linkClass} end>
-                              {item.icon && <item.icon className="w-4 h-4" />} {item.label}
+                            <NavLink
+                              key={item.to}
+                              to={item.to}
+                              className={linkClass}
+                              end
+                            >
+                              {item.icon && <item.icon className="w-4 h-4" />}{" "}
+                              {item.label}
                             </NavLink>
                           );
                         }
@@ -189,16 +204,21 @@ export default function AdminLayout() {
                                   end
                                   className={({ isActive }) =>
                                     `flex items-center gap-2 px-3 py-2 rounded-md hover:bg-gray-100 transition ${
-                                      isActive && currentRole === "ALL" ? "bg-gray-100 font-medium" : ""
+                                      isActive && currentRole === "ALL"
+                                        ? "bg-gray-100 font-medium"
+                                        : ""
                                     }`
                                   }
                                 >
-                                  {item.icon && <item.icon className="w-4 h-4" />} {item.label}
+                                  {item.icon && (
+                                    <item.icon className="w-4 h-4" />
+                                  )}{" "}
+                                  {item.label}
                                 </NavLink>
                                 <button
                                   type="button"
                                   onClick={() => setOpenRoleSub((v) => !v)}
-                                  className="mr-2 inline-flex items-center justify-center rounded hover:bg-gray-100"
+                                  className="inline-flex items-center justify-center mr-2 rounded hover:bg-gray-100"
                                   style={{ width: 28, height: 28 }}
                                   aria-label="Toggle Role submenu"
                                 >
@@ -212,12 +232,14 @@ export default function AdminLayout() {
                               </div>
 
                               {openRoleSub && (
-                                <div className="ml-6 mt-1 space-y-1">
+                                <div className="mt-1 ml-6 space-y-1">
                                   <NavLink
                                     to="/admin/role?role=USER"
                                     className={({ isActive }) =>
                                       `flex items-center gap-2 px-3 py-2 rounded-md hover:bg-gray-100 transition ${
-                                        isActive && currentRole === "USER" ? "bg-gray-100 font-medium" : ""
+                                        isActive && currentRole === "USER"
+                                          ? "bg-gray-100 font-medium"
+                                          : ""
                                       }`
                                     }
                                   >
@@ -227,7 +249,9 @@ export default function AdminLayout() {
                                     to="/admin/role?role=TRAINER"
                                     className={({ isActive }) =>
                                       `flex items-center gap-2 px-3 py-2 rounded-md hover:bg-gray-100 transition ${
-                                        isActive && currentRole === "TRAINER" ? "bg-gray-100 font-medium" : ""
+                                        isActive && currentRole === "TRAINER"
+                                          ? "bg-gray-100 font-medium"
+                                          : ""
                                       }`
                                     }
                                   >
@@ -237,7 +261,9 @@ export default function AdminLayout() {
                                     to="/admin/role?role=ADMIN"
                                     className={({ isActive }) =>
                                       `flex items-center gap-2 px-3 py-2 rounded-md hover:bg-gray-100 transition ${
-                                        isActive && currentRole === "ADMIN" ? "bg-gray-100 font-medium" : ""
+                                        isActive && currentRole === "ADMIN"
+                                          ? "bg-gray-100 font-medium"
+                                          : ""
                                       }`
                                     }
                                   >
@@ -259,16 +285,21 @@ export default function AdminLayout() {
                                   end
                                   className={({ isActive }) =>
                                     `flex items-center gap-2 px-3 py-2 rounded-md hover:bg-gray-100 transition ${
-                                      isActive && currentPlan === "ALL" ? "bg-gray-100 font-medium" : ""
+                                      isActive && currentPlan === "ALL"
+                                        ? "bg-gray-100 font-medium"
+                                        : ""
                                     }`
                                   }
                                 >
-                                  {item.icon && <item.icon className="w-4 h-4" />} {item.label}
+                                  {item.icon && (
+                                    <item.icon className="w-4 h-4" />
+                                  )}{" "}
+                                  {item.label}
                                 </NavLink>
                                 <button
                                   type="button"
                                   onClick={() => setOpenPlanSub((v) => !v)}
-                                  className="mr-2 inline-flex items-center justify-center rounded hover:bg-gray-100"
+                                  className="inline-flex items-center justify-center mr-2 rounded hover:bg-gray-100"
                                   style={{ width: 28, height: 28 }}
                                   aria-label="Toggle Plan submenu"
                                 >
@@ -282,12 +313,14 @@ export default function AdminLayout() {
                               </div>
 
                               {openPlanSub && (
-                                <div className="ml-6 mt-1 space-y-1">
+                                <div className="mt-1 ml-6 space-y-1">
                                   <NavLink
                                     to="/admin/plan?plan=FREE"
                                     className={({ isActive }) =>
                                       `flex items-center gap-2 px-3 py-2 rounded-md hover:bg-gray-100 transition ${
-                                        isActive && currentPlan === "FREE" ? "bg-gray-100 font-medium" : ""
+                                        isActive && currentPlan === "FREE"
+                                          ? "bg-gray-100 font-medium"
+                                          : ""
                                       }`
                                     }
                                   >
@@ -297,7 +330,9 @@ export default function AdminLayout() {
                                     to="/admin/plan?plan=PREMIUM"
                                     className={({ isActive }) =>
                                       `flex items-center gap-2 px-3 py-2 rounded-md hover:bg-gray-100 transition ${
-                                        isActive && currentPlan === "PREMIUM" ? "bg-gray-100 font-medium" : ""
+                                        isActive && currentPlan === "PREMIUM"
+                                          ? "bg-gray-100 font-medium"
+                                          : ""
                                       }`
                                     }
                                   >
@@ -331,7 +366,10 @@ export default function AdminLayout() {
             </div>
             <div className="flex items-center gap-3 text-sm text-gray-700">
               <span>{user?.role}</span>
-              <button onClick={logout} className="px-3 py-1 border rounded hover:bg-gray-50">
+              <button
+                onClick={logout}
+                className="px-3 py-1 border rounded hover:bg-gray-50"
+              >
                 Logout
               </button>
             </div>
@@ -344,27 +382,41 @@ export default function AdminLayout() {
 
         {/* Notifications */}
         <aside className="sticky top-14 hidden h-[calc(100vh-56px)] w-80 shrink-0 border-l bg-white p-4 xl:block">
-          <div className="mb-3 font-medium">Notifications</div>
-          <ul className="space-y-3 text-sm text-gray-700">
-            <li className="flex items-start gap-2">
-              <span className="mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full border">
-                <Bell className="h-3.5 w-3.5" />
-              </span>
-              <div>
-                You fixed a bug. <span className="text-gray-400">Just now</span>
-              </div>
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full border">
-                <Users className="h-3.5 w-3.5" />
-              </span>
-              <div>
-                New user registered. <span className="text-gray-400">59 minutes ago</span>
-              </div>
-            </li>
-          </ul>
+          <div className="flex items-center justify-between mb-3 font-medium">
+            <span>Notifications</span>
+            <button
+              type="button"
+              className="text-xs text-blue-600 hover:underline"
+              onClick={notificationFeed.markAll}
+            >
+              Đánh dấu đã đọc
+            </button>
+          </div>
+          {notificationFeed.loading ? (
+            <p className="text-sm text-gray-500">Đang tải...</p>
+          ) : adminNotifications.length === 0 ? (
+            <p className="text-sm text-gray-500">Chưa có thông báo.</p>
+          ) : (
+            <ul className="space-y-3 text-sm text-gray-700">
+              {adminNotifications.map((item) => (
+                <li key={item.notification_id} className="flex items-start gap-2">
+                  <span className="mt-0.5 inline-flex h-6 w-6 items-center justify-center rounded-full border text-gray-500">
+                    <Bell className="h-3.5 w-3.5" />
+                  </span>
+                  <div>
+                    <p className="font-semibold text-gray-800">{item.title}</p>
+                    {item.body && <p className="text-xs text-gray-500">{item.body}</p>}
+                    <p className="text-[11px] text-gray-400">
+                      {new Date(item.created_at).toLocaleString("vi-VN")}
+                    </p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
         </aside>
       </div>
     </div>
   );
 }
+

@@ -1,12 +1,22 @@
 // routes/auth.js
 import express from "express";
 import passport from "passport";
-// import { recordLoginHistory } from "../controllers/auth.controller.js";
+import { createGoogleLoginOtp, createGoogleOtpState } from "../services/googleOtp.service.js";
+import { sendMail } from "../utils/mailer.js";
+import { buildEmailOtpTemplate } from "../utils/emailTemplates.js";
+import User from "../models/user.model.js";
+import { FRONTEND_URL } from "../config/env.js";
 
 const router = express.Router();
 
 router.get(
   "/google",
+  (req, _res, next) => {
+    if (req.query?.from) {
+      req.session.googleOauthRedirect = String(req.query.from);
+    }
+    next();
+  },
   passport.authenticate("google", {
     scope: ["profile", "email"],
     prompt: "select_account",
@@ -16,14 +26,60 @@ router.get(
 router.get(
   "/google/callback",
   passport.authenticate("google", {
-    failureRedirect: `${process.env.FRONTEND_URL}/login`,
-    keepSessionInfo: true, 
+    failureRedirect: `${FRONTEND_URL}/login`,
+    keepSessionInfo: true,
   }),
   async (req, res) => {
-    // login history disabled
+    try {
+      if (!req.user) {
+        return res.redirect(`${FRONTEND_URL}/login?oauth=failed`);
+      }
 
-    const url = new URL("/dashboard", process.env.FRONTEND_URL).toString();
-    return res.redirect(url);
+      const baseUserId = req.user.user_id || req.user.id;
+      const oauthUser =
+        typeof req.user.toJSON === "function"
+          ? req.user
+          : await User.findByPk(baseUserId);
+      if (!oauthUser) {
+        return res.redirect(`${FRONTEND_URL}/login?oauth=failed`);
+      }
+
+      const userId = oauthUser.user_id || oauthUser.id || baseUserId;
+
+      const { code, ttlMin, ttlSeconds } = await createGoogleLoginOtp(userId);
+      const { subject, html, text } = buildEmailOtpTemplate({
+        name: oauthUser.fullName || oauthUser.username || "bạn",
+        code,
+        ttlMin,
+        brand: "FitNexus",
+      });
+      await sendMail({ to: oauthUser.email, subject, html, text });
+
+      const redirectHint = req.session?.googleOauthRedirect || null;
+      const otpToken = await createGoogleOtpState(userId, {
+        email: oauthUser.email,
+        redirectTo: redirectHint,
+        ttlSeconds,
+      });
+      if (req.session) delete req.session.googleOauthRedirect;
+
+      if (typeof req.logout === "function") {
+        await new Promise((resolve, reject) =>
+          req.logout((err) => (err ? reject(err) : resolve()))
+        );
+      }
+
+      const url = new URL("/login/otp", FRONTEND_URL);
+      if (oauthUser.email) url.searchParams.set("email", oauthUser.email);
+      url.searchParams.set("otpToken", otpToken);
+      if (redirectHint) {
+        url.searchParams.set("from", redirectHint);
+      }
+      return res.redirect(url.toString());
+    } catch (error) {
+      console.error("Google OAuth OTP error:", error);
+      return res.redirect(`${FRONTEND_URL}/login?oauth=error`);
+    }
   }
 );
 

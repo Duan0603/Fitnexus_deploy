@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api, { endpoints } from '../../lib/api';
 import './NutritionAI.css';
-import Navbar from '../../components/common/Navbar.jsx';
+import HeaderLogin from '../../components/header/HeaderLogin.jsx';
 import { useAuth } from '../../context/auth.context.jsx';
 import { renderMarkdown } from '../../lib/markdown.js';
 
@@ -44,7 +44,7 @@ export default function NutritionPersonalize() {
 
   return (
       <div className="fc-page">
-        <Navbar />
+        <HeaderLogin />
         <div className="fc-container">
           {/* Page header card (under the fixed navbar) */}
           

@@ -16,6 +16,8 @@ import shouldersIcon from "../../assets/body/shouldersIcon.svg";
 import tricepsIcon from "../../assets/body/tricepsIcon.svg";
 import upperLegsIcon from "../../assets/body/upperLegsIcon.svg";
 import lowerLegsIcon from "../../assets/body/lowerLegsIcon.svg";
+import StartWorkoutButton from "../../components/workout/StartWorkoutButton.jsx";
+
 
 function Badge({ children, tone = "gray" }) {
   const tones = {
@@ -127,10 +129,10 @@ export default function Exercise() {
     try {
       const saved = JSON.parse(sessionStorage.getItem("today_workout") || "null");
       if (Array.isArray(saved)) setTodayList(saved);
-    } catch {}
+    } catch { }
   }, []);
   useEffect(() => {
-    try { sessionStorage.setItem("today_workout", JSON.stringify(todayList)); } catch {}
+    try { sessionStorage.setItem("today_workout", JSON.stringify(todayList)); } catch { }
   }, [todayList]);
 
   // ========== Current Plan Context (from Plan Detail) ==========
@@ -140,7 +142,7 @@ export default function Exercise() {
       if (!raw) return null;
       const obj = JSON.parse(raw);
       if (obj && obj.plan_id) return obj;
-    } catch {}
+    } catch { }
     return null;
   });
   const [planItemsSet, setPlanItemsSet] = useState(new Set());
@@ -174,7 +176,7 @@ export default function Exercise() {
   }, [currentPlan?.plan_id]);
 
   const clearCurrentPlan = () => {
-    try { sessionStorage.removeItem("current_plan_context"); } catch {}
+    try { sessionStorage.removeItem("current_plan_context"); } catch { }
     setCurrentPlan(null);
     setPlanItemsSet(new Set());
     setPlanItemsCount(undefined);
@@ -365,7 +367,7 @@ export default function Exercise() {
           const list = r?.data?.items || [];
           newCount = list.length;
           setPlanItemsCount(newCount);
-        } catch {}
+        } catch { }
       }
       // Show notice in sidebar
       setSidebarNotice({
@@ -436,9 +438,8 @@ export default function Exercise() {
                     <button
                       key={g.id}
                       onClick={() => toggleGroup(g.id)}
-                      className={`px-3 py-1.5 rounded-full border text-sm ${
-                        active ? "border-blue-600 text-blue-700 bg-blue-50" : "border-gray-300 hover:bg-gray-50"
-                      }`}
+                      className={`px-3 py-1.5 rounded-full border text-sm ${active ? "border-blue-600 text-blue-700 bg-blue-50" : "border-gray-300 hover:bg-gray-50"
+                        }`}
                     >
                       {g.label}
                     </button>
@@ -472,53 +473,53 @@ export default function Exercise() {
                   <div className="p-6 text-sm text-red-600">{error.message}</div>
                 ) : paged.length === 0 ? (
                   <div className="p-6 text-sm text-gray-600">Không tìm thấy bài tập phù hợp</div>
-                ) : 
+                ) :
                   paged.map((ex) => (
-                  <div key={ex.id} className="overflow-hidden bg-white border rounded-xl">
-                    {ex.imageUrl ? (
-                      <div className="relative w-full bg-gray-100" style={{ paddingBottom: "56%" }}>
-                        <img src={ex.imageUrl} alt={ex.name} className="absolute inset-0 object-cover w-full h-full" />
-                      </div>
-                    ) : (
-                      <div className="relative w-full bg-gray-100" style={{ paddingBottom: "56%" }} />
-                    )}
-                    <div className="p-4">
-                      <div className="flex items-start justify-between gap-3">
-                        <h3 className="text-base font-semibold text-gray-900 line-clamp-2">{ex.name}</h3>
-                        <button
-                          className="text-sm text-blue-600 hover:underline"
-                          onClick={() => navigate(`/exercises/${ex.id}`, { state: ex })}
-                        >
-                          Chi tiết
-                        </button>
-                      </div>
-                      <div className="flex flex-wrap gap-2 mt-2">
-                        {ex.difficulty && <Badge tone="amber">{ex.difficulty}</Badge>}
-                        {ex.__raw?.exercise_type && <Badge tone="purple">{ex.__raw.exercise_type}</Badge>}
-                        {ex.equipment && <Badge tone="blue">{ex.equipment}</Badge>}
-                        {currentPlan?.plan_id && planItemsSet.has(String(ex.id)) && (
-                          <span className="inline-flex items-center px-2 py-1 text-xs text-green-700 bg-green-50 border border-green-200 rounded">
-                            Thuộc plan {currentPlan.plan_id} - {currentPlan.name || '(Không có tên)'}
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2 mt-4">
-                        <button
-                          onClick={() => addToPlan(ex)}
-                          className="px-3 py-1.5 text-sm font-medium text-blue-600 border border-blue-600 rounded-lg hover:bg-blue-50"
-                        >
-                          + Thêm vào Plan
-                        </button>
-                        <button
-                          onClick={() => addToToday(ex)}
-                          className="px-3 py-1.5 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"
-                        >
-                          + Buổi hôm nay
-                        </button>
+                    <div key={ex.id} className="overflow-hidden bg-white border rounded-xl">
+                      {ex.imageUrl ? (
+                        <div className="relative w-full bg-gray-100" style={{ paddingBottom: "56%" }}>
+                          <img src={ex.imageUrl} alt={ex.name} className="absolute inset-0 object-cover w-full h-full" />
+                        </div>
+                      ) : (
+                        <div className="relative w-full bg-gray-100" style={{ paddingBottom: "56%" }} />
+                      )}
+                      <div className="p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <h3 className="text-base font-semibold text-gray-900 line-clamp-2">{ex.name}</h3>
+                          <button
+                            className="text-sm text-blue-600 hover:underline"
+                            onClick={() => navigate(`/exercises/${ex.id}`, { state: ex })}
+                          >
+                            Chi tiết
+                          </button>
+                        </div>
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {ex.difficulty && <Badge tone="amber">{ex.difficulty}</Badge>}
+                          {ex.__raw?.exercise_type && <Badge tone="purple">{ex.__raw.exercise_type}</Badge>}
+                          {ex.equipment && <Badge tone="blue">{ex.equipment}</Badge>}
+                          {currentPlan?.plan_id && planItemsSet.has(String(ex.id)) && (
+                            <span className="inline-flex items-center px-2 py-1 text-xs text-green-700 bg-green-50 border border-green-200 rounded">
+                              Thuộc plan {currentPlan.plan_id} - {currentPlan.name || '(Không có tên)'}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 mt-4">
+                          <button
+                            onClick={() => addToPlan(ex)}
+                            className="px-3 py-1.5 text-sm font-medium text-blue-600 border border-blue-600 rounded-lg hover:bg-blue-50"
+                          >
+                            + Thêm vào Plan
+                          </button>
+                          <button
+                            onClick={() => addToToday(ex)}
+                            className="px-3 py-1.5 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"
+                          >
+                            + Buổi hôm nay
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
               </div>
               {/* Pagination */}
               <div className="flex items-center justify-between mt-4">
@@ -637,14 +638,18 @@ export default function Exercise() {
                   </div>
                 )}
                 <div className="mt-3">
-                  <button
-                    className="w-full px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-60"
-                    disabled={!todayList.length}
-                    onClick={() => alert("Bắt đầu buổi (sẽ nối BE trong bước tiếp theo)")}
-                  >
-                    Bắt đầu buổi
-                  </button>
+                  {!todayList.length ? (
+                    <button
+                      className="w-full px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg disabled:opacity-60"
+                      disabled
+                    >
+                      Bắt đầu buổi
+                    </button>
+                  ) : (
+                    <StartWorkoutButton exercises={todayList} />
+                  )}
                 </div>
+
               </div>
             </div>
           </aside>

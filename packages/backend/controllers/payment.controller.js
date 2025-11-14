@@ -3,15 +3,47 @@ import SubscriptionPlan from "../models/subscription.plan.model.js";
 import Transaction from "../models/transaction.model.js";
 import User from "../models/user.model.js";
 import dns from "dns";
+import { Op } from "sequelize";
 import payos, { payosEnabled } from "../services/payos.client.js";
+import { sendMail } from "../utils/mailer.js";
+import { buildPremiumUpgradedEmailVn2 as buildPremiumUpgradedEmail } from "../utils/emailTemplates.js";
+import { notifyUser } from "../services/notification.service.js";
+import { FRONTEND_URL, BACKEND_URL } from "../config/env.js";
 
 dns.setDefaultResultOrder?.("ipv4first");
+
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 // === Helper: tạo mã orderCode ngắn, an toàn ===
 function uniqueOrderCode() {
   const sec = Math.floor(Date.now() / 1000);
   const rand = Math.floor(Math.random() * 1000);
   return sec * 1000 + rand;
+}
+
+async function sendPremiumUpgradeSuccess(userId, expiresAt) {
+  if (!userId) return;
+  try {
+    await notifyUser(userId, {
+      type: "premium_upgrade",
+      title: "🎉 Tài khoản của bạn vừa được nâng lên Premium",
+      body: expiresAt
+        ? `Quyền lợi Premium sẽ kéo dài đến ${new Date(expiresAt).toLocaleDateString("vi-VN")}.`
+        : "Bạn đã mở khoá toàn bộ quyền lợi Premium.",
+      metadata: { expiresAt },
+    });
+  } catch {}
+}
+
+async function sendPremiumUpgradeFailed(userId, reason = "Thanh toán không thành công. Vui lòng thử lại.") {
+  if (!userId) return;
+  try {
+    await notifyUser(userId, {
+      type: "premium_payment_failed",
+      title: "Thanh toán thất bại",
+      body: reason,
+    });
+  } catch {}
 }
 
 // === Tạo link thanh toán PayOS ===
@@ -42,8 +74,8 @@ export async function createPaymentLink(req, res) {
       payos_order_code: orderCode,
     });
 
-    const backendUrl = process.env.BACKEND_URL || "http://localhost:3001";
-    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+    const backendUrl = BACKEND_URL;
+    const frontendUrl = FRONTEND_URL;
     const useBackendReturn = String(process.env.PAYOS_USE_BACKEND_RETURN ?? '1') !== '0';
     const returnUrl = useBackendReturn
       ? `${backendUrl}/api/payment/return`
@@ -163,16 +195,30 @@ export async function handlePayosWebhook(req, res) {
           newExpiryDate.getDate() + Number(plan.duration_days || 30)
         );
         await User.update(
-          { user_type: "premium", user_exp_date: newExpiryDate },
+          { plan: "PREMIUM", user_type: "premium", user_exp_date: newExpiryDate },
           { where: { user_id: tx.user_id } }
         );
+        try {
+          const upgradedUser = await User.findByPk(tx.user_id);
+          if (upgradedUser?.email) {
+            const frontend = FRONTEND_URL;
+            const tpl = buildPremiumUpgradedEmail({
+              name: upgradedUser.fullName || upgradedUser.username || "bạn",
+              expiresAt: newExpiryDate,
+              dashboardUrl: `${frontend}/dashboard`,
+            });
+            await sendMail({ to: upgradedUser.email, ...tpl });
+          }
+        } catch {}
         await tx.update({
           status: "completed",
           payos_payment_id: paymentId || null,
         });
+        await sendPremiumUpgradeSuccess(tx.user_id, newExpiryDate);
       }
     } else if (["CANCELLED", "FAILED"].includes(status)) {
       await tx.update({ status: "failed" });
+      await sendPremiumUpgradeFailed(tx.user_id);
     }
 
     // 4. Phản hồi cho PayOS
@@ -190,7 +236,7 @@ export async function handlePayosWebhook(req, res) {
 
 // === Redirect sau khi thanh toán ===
 export async function returnUrl(req, res) {
-  const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+  const frontendUrl = FRONTEND_URL;
   try {
     const orderCodeRaw = req.query?.orderCode;
     const orderCode = Number(orderCodeRaw);
@@ -207,10 +253,11 @@ export async function returnUrl(req, res) {
           const newExpiryDate = new Date();
           newExpiryDate.setDate(newExpiryDate.getDate() + Number(plan.duration_days || 30));
           await User.update(
-            { user_type: "premium", user_exp_date: newExpiryDate },
+            { plan: "PREMIUM", user_type: "premium", user_exp_date: newExpiryDate },
             { where: { user_id: tx.user_id } }
           );
           await tx.update({ status: "completed" });
+          await sendPremiumUpgradeSuccess(tx.user_id, newExpiryDate);
         }
       }
     }
@@ -225,8 +272,9 @@ export async function returnUrl(req, res) {
 
 export async function cancelUrl(req, res) {
   try {
-    const frontend = process.env.FRONTEND_URL || "http://localhost:5173";
-    return res.redirect(`${frontend}/`);
+    const frontend = FRONTEND_URL;
+    return res.redirect(`${frontend}/dashboard`);
+
   } catch {
     return res.redirect("/");
   }
@@ -266,18 +314,127 @@ export async function verifyPaymentStatus(req, res) {
         const newExpiryDate = new Date();
         newExpiryDate.setDate(newExpiryDate.getDate() + Number(plan.duration_days || 30));
         await User.update(
-          { user_type: "premium", user_exp_date: newExpiryDate },
+          { plan: "PREMIUM", user_type: "premium", user_exp_date: newExpiryDate },
           { where: { user_id: tx.user_id } }
         );
+        try {
+          const upgradedUser = await User.findByPk(tx.user_id);
+          if (upgradedUser?.email) {
+            const frontend = FRONTEND_URL;
+            const tpl = buildPremiumUpgradedEmail({
+              name: upgradedUser.fullName || upgradedUser.username || "bạn",
+              expiresAt: newExpiryDate,
+              dashboardUrl: `${frontend}/dashboard`,
+            });
+            await sendMail({ to: upgradedUser.email, ...tpl });
+          }
+        } catch {}
       }
       await tx.update({ status: "completed" });
+      await sendPremiumUpgradeSuccess(tx.user_id, newExpiryDate);
     } else if (["CANCELLED", "FAILED", "EXPIRED"].includes(status) && tx.status === "pending") {
       await tx.update({ status: "failed" });
+      await sendPremiumUpgradeFailed(tx.user_id);
     }
 
     return res.json({ success: true, status, transaction: { id: tx.transaction_id, dbStatus: tx.status } });
   } catch (err) {
     console.error("verifyPaymentStatus error:", err);
     return res.status(500).json({ success: false, message: "VERIFY_FAILED", detail: String(err?.message || err) });
+  }
+}
+
+// === Dev-only: Mock upgrade to PREMIUM (no real payment) ===
+export async function mockUpgradePremium(req, res) {
+  try {
+    const allowMock = (process.env.NODE_ENV !== 'production') || String(process.env.ALLOW_PAYMENT_MOCK ?? '0') === '1';
+    if (!allowMock) {
+      return res.status(403).json({ success: false, message: 'Mock upgrade disabled in production' });
+    }
+
+    const userId = req.userId || req.user?.user_id;
+    if (!userId) return res.status(401).json({ success: false, message: 'Unauthorized' });
+
+    const durationDays = Number(process.env.MOCK_PREMIUM_DAYS || 30);
+    const newExpiryDate = new Date();
+    newExpiryDate.setDate(newExpiryDate.getDate() + (Number.isFinite(durationDays) ? durationDays : 30));
+
+    await User.update(
+      { plan: 'PREMIUM', user_type: 'premium', user_exp_date: newExpiryDate },
+      { where: { user_id: userId } }
+    );
+
+    const user = await User.findByPk(userId);
+    try {
+      if (user?.email) {
+        const frontend = FRONTEND_URL;
+        const tpl = buildPremiumUpgradedEmail({
+          name: user.fullName || user.username || 'bạn',
+          expiresAt: newExpiryDate,
+          dashboardUrl: `${frontend}/dashboard`,
+        });
+        await sendMail({ to: user.email, ...tpl });
+      }
+    } catch {}
+    await sendPremiumUpgradeSuccess(userId, newExpiryDate);
+    return res.json({ success: true, message: 'Mock upgraded to PREMIUM', data: { user } });
+  } catch (err) {
+    console.error('mockUpgradePremium error:', err);
+    return res.status(500).json({ success: false, message: 'MOCK_UPGRADE_FAILED', detail: String(err?.message || err) });
+  }
+}
+
+export async function listMyPurchases(req, res) {
+  try {
+    const userId = req.userId || req.user?.user_id;
+    if (!userId) return res.status(401).json({ success: false, message: 'Unauthorized' });
+
+    const user = await User.findByPk(userId, {
+      attributes: ['plan', 'user_type', 'user_exp_date'],
+    });
+
+    const transactions = await Transaction.findAll({
+      where: { user_id: userId, status: { [Op.in]: ['completed', 'pending'] } },
+      include: [
+        {
+          model: SubscriptionPlan,
+          as: 'planTransaction',
+          attributes: ['plan_id', 'name', 'slug', 'price', 'duration_days'],
+        },
+      ],
+      order: [['created_at', 'DESC']],
+    });
+
+    const activePlanId =
+      user?.user_type === 'premium'
+        ? transactions.find((tx) => tx.status === 'completed')?.plan_id || null
+        : null;
+
+    const purchases = transactions.map((tx) => {
+      const plan = tx.planTransaction;
+      const expiresAt =
+        tx.status === 'completed' && plan?.duration_days
+          ? new Date(tx.created_at.getTime() + plan.duration_days * DAY_MS)
+          : null;
+      const isActive = !!(activePlanId && plan && plan.plan_id === activePlanId && user?.user_type === 'premium');
+      return {
+        transactionId: tx.transaction_id,
+        planId: plan?.plan_id || tx.plan_id,
+        planName: plan?.name || null,
+        planSlug: plan?.slug || null,
+        price: plan?.price || tx.amount,
+        durationDays: plan?.duration_days || null,
+        status: tx.status,
+        purchasedAt: tx.created_at,
+        expiresAt,
+        isActive,
+        activeUntil: isActive ? user?.user_exp_date : null,
+      };
+    });
+
+    return res.json({ success: true, data: { purchases, subscription: user } });
+  } catch (err) {
+    console.error('listMyPurchases error:', err);
+    return res.status(500).json({ success: false, message: 'Không thể tải lịch sử nâng cấp' });
   }
 }

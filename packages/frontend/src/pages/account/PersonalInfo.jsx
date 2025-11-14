@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/auth.context.jsx";
 import HeaderLogin from "../../components/header/HeaderLogin.jsx";
 import { validatePhone } from "../../lib/phoneValidation.js";
@@ -8,6 +9,7 @@ import Alert from "../../components/common/Alert.jsx";
 import { api, endpoints } from "../../lib/api.js";
 
 export default function PersonalInfo() {
+  const navigate = useNavigate();
   const { user, updateUserData } = useAuth();
   const [formData, setFormData] = useState({
     username: user?.username || "",
@@ -255,6 +257,7 @@ export default function PersonalInfo() {
                 type="button"
                 className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
                 disabled={isLoading}
+                onClick={() => navigate('/dashboard', { replace: true })}
               >
                 Hủy
               </button>

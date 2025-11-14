@@ -1,8 +1,10 @@
 // /src/lib/openOAuthPopup.js
+import { env } from "../config/env.js";
+
 export default function openOAuthPopup(
   url,
   {
-    backendOrigin = "http://localhost:3001",
+    backendOrigin = env.backendUrl,
     frontendOrigin = window.location.origin,
   } = {}
 ) {

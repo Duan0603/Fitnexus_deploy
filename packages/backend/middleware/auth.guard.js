@@ -2,14 +2,16 @@ import jwt from "jsonwebtoken";
 
 export default function authGuard(req, res, next) {
   try {
-    // Lấy Authorization header từ request
+    // 1) Accept Passport session (e.g., Google OAuth)
+    if (req.user && (req.user.user_id || req.user.id)) {
+      req.userId = req.user.user_id || req.user.id;
+      req.userRole = req.user.role || null;
+      return next();
+    }
+
+    // 2) Fallback to Bearer JWT in Authorization header
     const authHeader = req.get("authorization") || req.get("Authorization") || "";
-    console.log("Auth Header:", authHeader);
-
-    // Tách scheme và token
     const [scheme, token] = authHeader.split(" ");
-
-    // Kiểm tra scheme và token
     if (scheme !== "Bearer" || !token) {
       return res.status(401).json({
         success: false,
@@ -17,14 +19,9 @@ export default function authGuard(req, res, next) {
       });
     }
 
-    // Verify token
     const payload = jwt.verify(token, process.env.JWT_SECRET);
-
-    // Gán userId và userRole từ payload
     req.userId = payload.sub || payload.userId || payload.id;
     req.userRole = payload.role || null;
-
-    // Kiểm tra userId
     if (!req.userId) {
       return res.status(401).json({
         success: false,
@@ -32,13 +29,14 @@ export default function authGuard(req, res, next) {
       });
     }
 
-    next();
+    return next();
   } catch (err) {
-    console.error("Auth Guard Error:", err); // Log lỗi để dễ dàng debug
+    console.error("Auth Guard Error:", err);
     return res.status(401).json({
       success: false,
       message: "Unauthorized: Invalid or expired token",
-      error: err.message, // Trả lại thông báo lỗi chi tiết cho dev
+      error: err.message,
     });
   }
 }
+

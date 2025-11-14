@@ -44,8 +44,8 @@ export default function PlanNew() {
     try {
       const payload = {
         name: String(form.name || "").trim(),
-        description: String(form.description || "").trim() || undefined,
-        difficulty_level: form.difficulty_level || undefined,
+        description: String(form.description || "").trim() || null,
+        difficulty_level: form.difficulty_level || null,
         is_public: !!form.is_public,
       };
       if (!payload.name) {
