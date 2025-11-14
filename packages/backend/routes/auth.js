@@ -97,7 +97,17 @@ router.get(
         ttlMin,
         brand: "FitNexus",
       });
-      await sendMail({ to: oauthUser.email, subject, html, text });
+
+      // If DISABLE_EMAIL is enabled, skip sending email and log OTP for debugging
+      if (String(process.env.DISABLE_EMAIL || "").toLowerCase() === "true") {
+        console.info("DISABLE_EMAIL active — OTP for user:", {
+          email: oauthUser.email,
+          otp: code,
+          ttlSeconds,
+        });
+      } else {
+        await sendMail({ to: oauthUser.email, subject, html, text });
+      }
 
       const redirectHint = req.session?.googleOauthRedirect || null;
       const otpToken = await createGoogleOtpState(userId, {
