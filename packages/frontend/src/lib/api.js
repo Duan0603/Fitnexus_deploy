@@ -598,19 +598,6 @@ export const markAllNotificationsReadApi = async () => {
   return res.data;
 };
 
-export const verifyGoogleOtpApi = async (code, otpToken) => {
-  const res = await api.post(endpoints.auth.googleOtpVerify, {
-    code,
-    otpToken,
-  });
-  return res;
-};
-
-export const resendGoogleOtpApi = async (otpToken) => {
-  const res = await api.post(endpoints.auth.googleOtpResend, { otpToken });
-  return res.data;
-};
-
 export default api;
 
 export const reorderPlanExercisesApi = async (planId, exercises) => {
