@@ -1,7 +1,7 @@
 // src/pages/exercises/ExerciseDetail.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import { useParams, useLocation, useNavigate } from "react-router-dom";
-import api from "../../lib/api.js";
+import axios from "axios";
 import { favoriteExercise, unfavoriteExercise, getExerciseFavoriteStatus } from '../../lib/api.js';
 import { Heart } from 'lucide-react';
 import { useAuth } from "../../context/auth.context.jsx";
@@ -146,7 +146,7 @@ export default function ExerciseDetail() {
       setError(null);
       try {
         // BE chưa có endpoint chi tiết cho phần này -> lấy list rồi them theo id/slug
-        const list = await api.get("/api/exercises", {
+        const list = await axios.get("/api/exercises", {
           params: { t: Date.now(), page: 1, pageSize: 1000 },
         });
         if (alive && list.data?.success) {
@@ -183,11 +183,11 @@ export default function ExerciseDetail() {
     async function fetchExtra() {
       try {
         const stepRes =
-          (await api
+          (await axios
             .get(`/api/exercises/id/${exercise.exercise_id}/steps`)
             .catch(() => null)) ||
           (exercise.slug
-            ? await api
+            ? await axios
                 .get(
                   `/api/exercises/slug/${encodeURIComponent(
                     exercise.slug
@@ -195,10 +195,10 @@ export default function ExerciseDetail() {
                 )
                 .catch(() => null)
             : null) ||
-          (await api
+          (await axios
             .get(`/data/exercise_steps/${exercise.slug}.json`)
             .catch(() => null)) ||
-          (await api
+          (await axios
             .get(`/data/exercise_steps/${exercise.exercise_id}.json`)
             .catch(() => null));
 
@@ -231,7 +231,7 @@ export default function ExerciseDetail() {
     (async () => {
       try {
         setRelatedLoading(true);
-        const res = await api.get(
+        const res = await axios.get(
           `/api/exercises/id/${exercise.exercise_id}/related`,
           { params: { limit: 16 } }
         );
@@ -255,7 +255,7 @@ export default function ExerciseDetail() {
     (async () => {
       try {
         setMusclesLoading(true);
-        const res = await api.get(`/api/exercises/id/${exercise.exercise_id}/muscles`);
+        const res = await axios.get(`/api/exercises/id/${exercise.exercise_id}/muscles`);
         if (alive && res?.data?.success) setMuscles(res.data.data || null);
       } catch {}
       finally { if (alive) setMusclesLoading(false); }

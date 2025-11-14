@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import api from '../../lib/api.js';
+import axios from 'axios';
 import { useSearchParams } from 'react-router-dom';
 
 export default function useModelingController(options = {}) {
@@ -49,7 +49,7 @@ export default function useModelingController(options = {}) {
     setError(null);
     try {
       // Request a large pageSize so modeling lists have the full set
-      const response = await api.get(`/api/exercises/muscle/${muscleGroup}`, {
+      const response = await axios.get(`/api/exercises/muscle/${muscleGroup}`, {
         params: { page: 1, pageSize: 1000 },
       });
       if (response.data?.success) {

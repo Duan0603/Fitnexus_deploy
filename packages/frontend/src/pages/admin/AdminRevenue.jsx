@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import api from "../../lib/api";
+import axios from "../../lib/api";
 import {
   ResponsiveContainer,
   CartesianGrid,
@@ -53,8 +53,8 @@ export default function AdminRevenue() {
     (async () => {
       try {
         const [tx, top] = await Promise.all([
-          api.get("/api/admin/revenue/transactions"),
-          api.get("/api/admin/revenue/top-users"),
+          axios.get("/api/admin/revenue/transactions"),
+          axios.get("/api/admin/revenue/top-users"),
         ]);
         setTransactions(Array.isArray(tx.data) ? tx.data : []);
         setTopUsers(Array.isArray(top.data) ? top.data : []);
