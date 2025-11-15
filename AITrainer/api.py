@@ -59,8 +59,7 @@ print("Khởi tạo cấu hình Gemini API và Cloudinary...")
 
 # Chuẩn bị danh sách model fallback
 GEMINI_MODELS = [
-    os.getenv("GEMINI_MODEL") or "gemini-2.0-flash",
-    "gemini-1.5-flash",
+    os.getenv("GEMINI_MODEL") or "gemini-2.5-flash-lite",
 ]
 
 def _gemini_generate_json(prompt: str, timeout_sec: int = 120):
