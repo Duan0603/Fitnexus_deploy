@@ -1,8 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { addExerciseToPlanApi, getPlanByIdApi } from "../../lib/api.js";
+import api, { addExerciseToPlanApi, getPlanByIdApi } from "../../lib/api.js";
 import HeaderLogin from "../../components/header/HeaderLogin.jsx";
-import axios from "axios";
 
 // Icons (images) reused from demo for visual consistency
 import absIcon from "../../assets/body/coreIcon.svg";
@@ -199,7 +198,7 @@ export default function Exercise() {
         let res = null;
         const onlyGroup = selectedGroups.length === 1 ? selectedGroups[0] : null;
         if (selectedGroups.length === 0) {
-          res = await axios.get('/api/exercises', { params: { page, pageSize } });
+          res = await api.get('/api/exercises', { params: { page, pageSize } });
           if (alive) {
             if (res.data?.success) {
               setRawExercises(res.data.data || []);
@@ -207,7 +206,7 @@ export default function Exercise() {
             } else setError({ message: 'Không thể tải danh sách bài tập' });
           }
         } else if (onlyGroup === 'cardio') {
-          res = await axios.get('/api/exercises/type/cardio', { params: { page, pageSize } });
+          res = await api.get('/api/exercises/type/cardio', { params: { page, pageSize } });
           if (alive) {
             if (res.data?.success) {
               setRawExercises(res.data.data || []);
@@ -215,7 +214,7 @@ export default function Exercise() {
             } else setError({ message: 'Không thể tải danh sách bài tập' });
           }
         } else if (onlyGroup) {
-          res = await axios.get(`/api/exercises/muscle/${onlyGroup}`, { params: { page, pageSize } });
+          res = await api.get(`/api/exercises/muscle/${onlyGroup}`, { params: { page, pageSize } });
           if (alive) {
             if (res.data?.success) {
               setRawExercises(res.data.data || []);
@@ -225,7 +224,7 @@ export default function Exercise() {
         } else {
           // Multi-group: fetch by first group big page, then filter FE by the rest based on synonyms
           const base = selectedGroups[0];
-          res = await axios.get(`/api/exercises/muscle/${base}`, { params: { page: 1, pageSize: 1000 } });
+          res = await api.get(`/api/exercises/muscle/${base}`, { params: { page: 1, pageSize: 1000 } });
           if (alive) {
             if (res.data?.success) {
               setClientPaging(true);
