@@ -6,6 +6,7 @@ import { FRONTEND_URL } from "../config/env.js";
 
 const router = express.Router();
 
+// Bắt đầu OAuth Google, lưu lại path "from" (nếu có) để redirect sau khi login
 router.get(
   "/google",
   (req, _res, next) => {
@@ -20,13 +21,16 @@ router.get(
   })
 );
 
+// Callback từ Google: đăng nhập trực tiếp (không OTP) và redirect theo role / onboarding
 router.get(
   "/google/callback",
-  // Custom callback to establish session and then redirect without OTP
   (req, res, next) => {
     passport.authenticate(
       "google",
-      { failureRedirect: `${FRONTEND_URL}/login`, keepSessionInfo: true },
+      {
+        failureRedirect: `${FRONTEND_URL}/login`,
+        keepSessionInfo: true,
+      },
       async (err, user, info) => {
         if (err) {
           console.error(
@@ -49,7 +53,9 @@ router.get(
             "Google OAuth authenticate: user id:",
             user.user_id || user.id || null
           );
-        } catch {}
+        } catch {
+          // ignore
+        }
 
         req.logIn(user, (loginErr) => {
           if (loginErr) {
@@ -93,7 +99,7 @@ router.get(
         targetPath = "/admin";
       } else if (!isOnboarded) {
         // User mới hoặc chưa hoàn tất onboarding -> vào flow onboarding
-        targetPath = "/onboarding/entry";
+        targetPath = "/onboarding";
       }
 
       // Nếu user đã onboarding xong và có from hợp lệ thì quay lại from
@@ -115,6 +121,7 @@ router.get(
   }
 );
 
+// Lấy user từ session (dùng cho FE)
 router.get("/me", (req, res) => {
   res.set(
     "Cache-Control",
@@ -135,3 +142,4 @@ router.get("/me", (req, res) => {
 });
 
 export default router;
+
