@@ -82,8 +82,23 @@ router.get(
       const redirectHint = req.session?.googleOauthRedirect || null;
       if (req.session) delete req.session.googleOauthRedirect;
 
+      const role = oauthUser.role;
+      const isAdmin = role === "ADMIN";
+      const isOnboarded = !!oauthUser.onboardingCompletedAt;
+
       let targetPath = "/dashboard";
+
+      if (isAdmin) {
+        // Admin sau khi login Google -> trang admin
+        targetPath = "/admin";
+      } else if (!isOnboarded) {
+        // User mới hoặc chưa hoàn tất onboarding -> vào flow onboarding
+        targetPath = "/onboarding/entry";
+      }
+
+      // Nếu user đã onboarding xong và có from hợp lệ thì quay lại from
       if (
+        isOnboarded &&
         typeof redirectHint === "string" &&
         redirectHint.startsWith("/") &&
         redirectHint.length <= 300
@@ -120,4 +135,3 @@ router.get("/me", (req, res) => {
 });
 
 export default router;
-
